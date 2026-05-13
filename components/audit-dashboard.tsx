@@ -9,21 +9,24 @@ import {
   BarChart3,
   Bot,
   ChevronDown,
-  CircleDot,
+  ClipboardList,
+  Download,
+  ExternalLink,
   FileText,
   Gauge,
   Globe2,
   Link2,
+  Plus,
   Search,
+  Share2,
   ShieldCheck,
   Sparkles,
   Target,
   TrendingUp,
   Wrench,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import type {
   AuditIssue,
@@ -212,85 +215,322 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className="relative mx-auto mt-12 w-full max-w-7xl space-y-6"
+      className="relative mx-auto mt-12 w-full max-w-[1560px]"
     >
-      <div className="pointer-events-none absolute -left-20 top-16 -z-10 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
-      <div className="pointer-events-none absolute -right-16 top-40 -z-10 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
-
-      <ResultsHero report={report} issueCounts={issueCounts} />
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {scoreCards.map((card, index) => (
-          <ScoreInsightCard
-            key={card.key}
-            index={index}
-            title={card.label}
-            icon={card.icon}
-            score={report.scoreBreakdown[card.key]}
-            insight={card.insight}
+      <div className="overflow-hidden rounded-[34px] border border-slate-200/80 bg-[#f7f8fc] shadow-[0_28px_100px_rgba(15,23,42,0.10)]">
+        <div className="grid min-h-[940px] lg:grid-cols-[248px_1fr]">
+          <DashboardSidebar
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            report={report}
           />
-        ))}
+
+          <div className="min-w-0 border-l border-slate-200/80 bg-[#f8f9fd]">
+            <DashboardTopHeader report={report} />
+
+            <main className="space-y-5 px-4 pb-6 sm:px-6 lg:px-8">
+              <ResultsHero report={report} issueCounts={issueCounts} />
+
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {scoreCards.map((card, index) => (
+                  <ScoreInsightCard
+                    key={card.key}
+                    index={index}
+                    title={card.label}
+                    icon={card.icon}
+                    score={report.scoreBreakdown[card.key]}
+                    insight={card.insight}
+                  />
+                ))}
+              </div>
+
+              <TabNav activeTab={activeTab} onChange={setActiveTab} />
+
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                >
+                  {activeTab === "overview" ? (
+                    <OverviewPanel
+                      report={report}
+                      allIssues={allIssues}
+                      activeIssues={activeIssues}
+                      aiRecommendationMap={aiRecommendationMap}
+                      expandedIssueCode={expandedIssueCode}
+                      setExpandedIssueCode={setExpandedIssueCode}
+                      severityFilter={severityFilter}
+                      setSeverityFilter={setSeverityFilter}
+                      fixesBySeverity={fixesBySeverity}
+                      focusIssue={focusIssue}
+                      issuesRef={issuesRef}
+                    />
+                  ) : activeTab === "performance" ? (
+                    <PerformancePanel report={report} issues={activeIssues} />
+                  ) : activeTab === "geo" ? (
+                    <GeoPanel
+                      report={report}
+                      issues={activeIssues}
+                      aiRecommendationMap={aiRecommendationMap}
+                      expandedIssueCode={expandedIssueCode}
+                      setExpandedIssueCode={setExpandedIssueCode}
+                      severityFilter={severityFilter}
+                      setSeverityFilter={setSeverityFilter}
+                      issuesRef={issuesRef}
+                    />
+                  ) : activeTab === "links" ? (
+                    <LinksPanel report={report} issues={activeIssues} />
+                  ) : (
+                    <AuditCategoryPanel
+                      tabId={activeTab}
+                      report={report}
+                      issues={activeIssues}
+                      aiRecommendationMap={aiRecommendationMap}
+                      expandedIssueCode={expandedIssueCode}
+                      setExpandedIssueCode={setExpandedIssueCode}
+                      severityFilter={severityFilter}
+                      setSeverityFilter={setSeverityFilter}
+                      issuesRef={issuesRef}
+                    />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </main>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function DashboardSidebar({
+  activeTab,
+  onChange,
+  report,
+}: {
+  activeTab: DashboardTabId;
+  onChange: (tab: DashboardTabId) => void;
+  report: EnrichedAuditResponse;
+}) {
+  return (
+    <aside className="bg-white px-4 py-6">
+      <div className="mb-8 flex items-center gap-3 px-2">
+        <div className="flex h-9 w-9 rotate-45 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#3f37ff] to-[#7657ff] shadow-lg shadow-indigo-500/20">
+          <div className="h-3.5 w-3.5 rounded-[4px] border-2 border-white" />
+        </div>
+        <span className="font-display text-2xl font-bold tracking-[0.16em] text-[#101936]">
+          EFFIX
+        </span>
       </div>
 
-      <Card className="overflow-hidden rounded-[32px]">
-        <CardContent className="space-y-6 p-3 sm:p-4 md:p-5">
-          <TabNav activeTab={activeTab} onChange={setActiveTab} />
+      <button
+        type="button"
+        onClick={() => {
+          onChange("overview");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+        className="mb-8 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#3f37ff] to-[#5c4dff] text-sm font-semibold text-white shadow-[0_14px_30px_rgba(63,55,255,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(63,55,255,0.34)] active:translate-y-0"
+      >
+        <Plus className="h-4 w-4" />
+        New Audit
+      </button>
 
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 12, filter: "blur(8px)" }}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={{ opacity: 0, y: -8, filter: "blur(8px)" }}
-              transition={{ duration: 0.28, ease: "easeOut" }}
-            >
-              {activeTab === "overview" ? (
-                <OverviewPanel
-                  report={report}
-                  allIssues={allIssues}
-                  activeIssues={activeIssues}
-                  aiRecommendationMap={aiRecommendationMap}
-                  expandedIssueCode={expandedIssueCode}
-                  setExpandedIssueCode={setExpandedIssueCode}
-                  severityFilter={severityFilter}
-                  setSeverityFilter={setSeverityFilter}
-                  fixesBySeverity={fixesBySeverity}
-                  focusIssue={focusIssue}
-                  issuesRef={issuesRef}
-                />
-              ) : activeTab === "performance" ? (
-                <PerformancePanel report={report} issues={activeIssues} />
-              ) : activeTab === "geo" ? (
-                <GeoPanel
-                  report={report}
-                  issues={activeIssues}
-                  aiRecommendationMap={aiRecommendationMap}
-                  expandedIssueCode={expandedIssueCode}
-                  setExpandedIssueCode={setExpandedIssueCode}
-                  severityFilter={severityFilter}
-                  setSeverityFilter={setSeverityFilter}
-                  issuesRef={issuesRef}
-                />
-              ) : activeTab === "links" ? (
-                <LinksPanel report={report} issues={activeIssues} />
-              ) : (
-                <AuditCategoryPanel
-                  tabId={activeTab}
-                  report={report}
-                  issues={activeIssues}
-                  aiRecommendationMap={aiRecommendationMap}
-                  expandedIssueCode={expandedIssueCode}
-                  setExpandedIssueCode={setExpandedIssueCode}
-                  severityFilter={severityFilter}
-                  setSeverityFilter={setSeverityFilter}
-                  issuesRef={issuesRef}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </CardContent>
-      </Card>
-    </motion.section>
+      <SidebarSection title="Main">
+        <SidebarItem
+          tab={{ id: "overview", label: "Overview", icon: Search }}
+          active={activeTab === "overview"}
+          onClick={() => onChange("overview")}
+        />
+      </SidebarSection>
+
+      <SidebarSection title="Audit">
+        {dashboardTabs.slice(1).map((tab) => (
+          <SidebarItem
+            key={tab.id}
+            tab={tab}
+            active={activeTab === tab.id}
+            onClick={() => onChange(tab.id)}
+          />
+        ))}
+      </SidebarSection>
+
+      <SidebarSection title="Reports">
+        <SidebarItem
+          tab={{ id: "overview", label: "Recommendations", icon: ClipboardList }}
+          active={false}
+          onClick={() => onChange("overview")}
+        />
+        <SidebarItem
+          tab={{ id: "overview", label: "Issues", icon: AlertTriangle }}
+          active={false}
+          onClick={() => onChange("overview")}
+        />
+        <SidebarItem
+          tab={{ id: "overview", label: "Export Report", icon: Download }}
+          active={false}
+          onClick={() => onChange("overview")}
+        />
+      </SidebarSection>
+
+      <div className="mt-8 rounded-[18px] border border-indigo-100 bg-gradient-to-b from-white to-indigo-50/70 p-5 text-center shadow-sm">
+        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <p className="font-display text-base font-bold text-[#101936]">
+          Upgrade to Pro
+        </p>
+        <p className="mt-2 text-xs leading-5 text-slate-500">
+          Unlock deeper monitoring, team workflows, and advanced insights.
+        </p>
+        <button
+          type="button"
+          className="mt-4 h-10 w-full rounded-[12px] bg-gradient-to-r from-[#3f37ff] to-[#5c4dff] text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-300 hover:-translate-y-0.5"
+        >
+          Upgrade Now
+        </button>
+      </div>
+
+      <div className="mt-8 flex items-center gap-3 px-2">
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-sm font-bold text-white">
+          N
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-[#101936]">Nagarjun</p>
+          <p className="truncate text-xs text-slate-500">{report.metadata.hostname}</p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function SidebarSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="mb-7">
+      <p className="mb-3 px-2 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+        {title}
+      </p>
+      <div className="space-y-1.5">{children}</div>
+    </div>
+  );
+}
+
+function SidebarItem({
+  tab,
+  active,
+  onClick,
+}: {
+  tab: { id: DashboardTabId; label: string; icon: LucideIcon };
+  active: boolean;
+  onClick: () => void;
+}) {
+  const Icon = tab.icon;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "relative flex h-11 w-full items-center gap-3 rounded-[12px] px-3 text-sm font-semibold transition duration-300",
+        active
+          ? "bg-indigo-50 text-[#332bff]"
+          : "text-slate-700 hover:bg-slate-50 hover:text-[#332bff]",
+      )}
+    >
+      <Icon className="h-4 w-4" />
+      <span>{tab.label}</span>
+      {active ? (
+        <motion.span
+          layoutId="sidebar-active-rail"
+          className="absolute right-0 top-2 h-7 w-0.5 rounded-full bg-[#4437ff]"
+        />
+      ) : null}
+    </button>
+  );
+}
+
+function DashboardTopHeader({ report }: { report: EnrichedAuditResponse }) {
+  function shareReport() {
+    const shareData = {
+      title: "EFFIX SEO Audit Results",
+      text: `SEO audit results for ${report.metadata.hostname}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      void navigator.share(shareData);
+      return;
+    }
+
+    void navigator.clipboard?.writeText(window.location.href);
+  }
+
+  function exportReport() {
+    window.print();
+  }
+
+  function runNewAudit() {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  return (
+    <header className="flex flex-col gap-4 px-4 py-7 sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-8">
+      <div>
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-display text-2xl font-bold tracking-tight text-[#101936] sm:text-3xl">
+            SEO Audit Results
+          </h2>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+            Completed
+          </span>
+        </div>
+        <p className="mt-2 text-base text-[#294066]">
+          Your comprehensive SEO & AI visibility analysis
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3">
+        <HeaderAction icon={Share2} label="Share" onClick={shareReport} />
+        <HeaderAction icon={Download} label="Export PDF" onClick={exportReport} />
+        <button
+          type="button"
+          onClick={runNewAudit}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#3f37ff] to-[#5d4cff] px-5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(63,55,255,0.25)] transition duration-300 hover:-translate-y-0.5 active:translate-y-0"
+        >
+          <Sparkles className="h-4 w-4" />
+          Run New Audit
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function HeaderAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold text-[#101936] shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:text-[#4437ff] active:translate-y-0"
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
   );
 }
 
@@ -304,38 +544,30 @@ function ResultsHero({
   const scoreLabel = getScoreLabel(report.score);
 
   return (
-    <Card className="relative overflow-hidden rounded-[34px]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(59,130,246,0.13),transparent_32%),radial-gradient(circle_at_85%_20%,rgba(139,92,246,0.12),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.70),rgba(255,255,255,0.36))] dark:bg-[radial-gradient(circle_at_15%_10%,rgba(59,130,246,0.14),transparent_32%),radial-gradient(circle_at_85%_20%,rgba(139,92,246,0.12),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))]" />
-      <CardContent className="relative grid gap-8 p-5 sm:p-6 lg:grid-cols-[1fr_auto] lg:p-8">
+    <Card className="relative overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(83,72,255,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(247,249,255,0.92))]" />
+      <div className="pointer-events-none absolute left-1/3 top-10 h-40 w-96 -rotate-6 rounded-full bg-gradient-to-r from-transparent via-indigo-200/30 to-transparent blur-xl" />
+      <CardContent className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_240px_300px] lg:items-center">
         <div className="min-w-0 space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/70 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/8 dark:text-slate-300">
-              <Sparkles className="h-3.5 w-3.5 text-blue-500" />
-              EFFIX Live Audit
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-200">
-              <CircleDot className="h-3.5 w-3.5 fill-current" />
-              {report.metadata.statusCode} crawled
-            </span>
-          </div>
-
           <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground">
+            <p className="text-sm font-medium text-[#294066]">
               Analyzed URL
             </p>
-            <h2 className="break-all font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
-              {report.metadata.url}
-            </h2>
-            <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-              Premium SEO, content, link, and AI visibility intelligence for{" "}
-              <span className="font-semibold text-foreground">
-                {report.metadata.hostname}
+            <div className="flex items-center gap-3">
+              <h2 className="break-all font-display text-2xl font-bold tracking-tight text-[#101936] sm:text-3xl">
+                {report.metadata.url}
+              </h2>
+              <ExternalLink className="h-5 w-5 shrink-0 text-[#4437ff]" />
+            </div>
+            <p className="flex flex-wrap items-center gap-3 text-sm text-[#294066]">
+              Audited on {new Date(report.metadata.fetchedAt).toLocaleString()}
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                Completed
               </span>
-              .
             </p>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
             <HeroStat
               label="AI Visibility"
               value={report.scoreBreakdown.aiVisibility}
@@ -357,37 +589,52 @@ function ResultsHero({
           </div>
         </div>
 
-        <div className="flex flex-col items-center justify-center gap-4 lg:min-w-[230px]">
+        <div className="flex flex-col items-center justify-center gap-3 border-slate-200 lg:border-r lg:pr-8">
           <ScoreRing
             score={report.score}
-            size={170}
-            strokeWidth={13}
+            size={164}
+            strokeWidth={12}
             label="Overall"
-            className="w-full max-w-[230px]"
+            className="border-0 bg-transparent shadow-none"
           />
-          <div className="grid w-full grid-cols-3 gap-2">
+          <p className="text-center text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+            {scoreLabel} audit posture
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          <p className="text-base leading-7 text-[#101936]">
+            Your website is performing well, but there are opportunities to
+            improve visibility and rankings.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.scrollBy({ top: 520, behavior: "smooth" })}
+            className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-indigo-200 bg-indigo-50 px-5 text-sm font-semibold text-[#4437ff] transition duration-300 hover:-translate-y-0.5 hover:bg-indigo-100"
+          >
+            View Priorities
+            <ArrowRight className="h-4 w-4" />
+          </button>
+          <div className="grid grid-cols-3 gap-2 pt-1">
             {severities.map((severity) => (
               <div
                 key={severity}
-                className="rounded-2xl border border-white/60 bg-white/55 p-3 text-center shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/6"
+                className="rounded-[12px] border border-slate-200 bg-white/80 p-3 text-center"
               >
                 <p
                   className={cn(
-                    "font-display text-xl font-bold",
+                    "font-display text-lg font-bold",
                     severityStyles[severity].accent,
                   )}
                 >
                   {issueCounts[severity]}
                 </p>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                <p className="text-[10px] font-semibold capitalize text-slate-500">
                   {severity}
                 </p>
               </div>
             ))}
           </div>
-          <p className="text-center text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
-            {scoreLabel} audit posture
-          </p>
         </div>
       </CardContent>
     </Card>
@@ -406,24 +653,24 @@ function HeroStat({
   tone: "blue" | "emerald" | "amber";
 }) {
   const toneClasses = {
-    blue: "from-blue-500 to-violet-500",
-    emerald: "from-emerald-500 to-teal-500",
-    amber: "from-amber-400 to-orange-400",
+    blue: "from-[#4437ff] to-[#7c5cff]",
+    emerald: "from-emerald-500 to-teal-400",
+    amber: "from-orange-400 to-amber-300",
   };
 
   return (
-    <div className="rounded-3xl border border-white/60 bg-white/55 p-4 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/6">
+    <div className="rounded-[14px] border border-slate-200 bg-white/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
           {label}
         </p>
-        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <TrendingUp className="h-4 w-4 text-slate-400" />
       </div>
-      <p className="font-display text-3xl font-bold">
+      <p className="font-display text-2xl font-bold text-[#101936]">
         {value}
-        <span className="text-sm text-muted-foreground">{suffix}</span>
+        <span className="text-sm text-[#294066]">{suffix}</span>
       </p>
-      <div className="mt-3 h-1.5 rounded-full bg-slate-950/8 dark:bg-white/10">
+      <div className="mt-3 h-1.5 rounded-full bg-slate-100">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${value}%` }}
@@ -457,27 +704,28 @@ function ScoreInsightCard({
       transition={{ delay: 0.06 * index, duration: 0.35 }}
       className="group"
     >
-      <Card className="h-full overflow-hidden rounded-[28px] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_80px_rgba(15,23,42,0.11)] dark:hover:shadow-[0_26px_80px_rgba(0,0,0,0.28)]">
-        <CardContent className="relative space-y-5 p-5">
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400/40 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
+      <Card className="h-full overflow-hidden rounded-[16px] border-slate-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_20px_48px_rgba(63,55,255,0.10)]">
+        <CardContent className="relative space-y-4 p-5">
+          <div className="absolute inset-x-5 bottom-4 h-12 bg-gradient-to-t from-indigo-50/80 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
           <div className="flex items-start justify-between gap-4">
-            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/60 bg-white/70 text-blue-600 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/8 dark:text-blue-300">
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-indigo-50 text-[#4437ff]">
               <Icon className="h-5 w-5" />
             </div>
             <ScoreBadge score={score} />
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="mt-1 font-display text-4xl font-bold tracking-tight">
+            <p className="text-sm font-semibold text-[#101936]">{title}</p>
+            <p className="mt-1 font-display text-3xl font-bold tracking-tight text-[#101936]">
               {score}
+              <span className="text-sm font-medium text-[#294066]"> /100</span>
             </p>
           </div>
           <MiniChart values={trend} />
           <div className="grid gap-2 opacity-100 transition duration-300 sm:min-h-[60px]">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
               Score explanation
             </p>
-            <p className="text-sm leading-6 text-muted-foreground">{insight}</p>
+            <p className="text-sm leading-6 text-[#294066]">{insight}</p>
           </div>
         </CardContent>
       </Card>
@@ -493,8 +741,8 @@ function TabNav({
   onChange: (tab: DashboardTabId) => void;
 }) {
   return (
-    <div className="rounded-[26px] border border-white/60 bg-white/55 p-2 shadow-sm shadow-black/5 backdrop-blur-2xl dark:border-white/10 dark:bg-white/5">
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-2 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+      <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {dashboardTabs.map(({ id, label, icon: Icon }) => {
           const active = activeTab === id;
 
@@ -504,16 +752,16 @@ function TabNav({
               type="button"
               onClick={() => onChange(id)}
               className={cn(
-                "relative flex min-h-12 items-center justify-center gap-2 overflow-hidden rounded-[20px] px-3 py-3 text-sm font-semibold transition duration-300",
+                "relative flex min-h-10 items-center justify-center gap-2 overflow-hidden rounded-[10px] px-3 py-2.5 text-sm font-semibold transition duration-300",
                 active
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:bg-white/60 hover:text-foreground dark:hover:bg-white/8",
+                  ? "text-[#4437ff]"
+                  : "text-[#294066] hover:bg-slate-50 hover:text-[#4437ff]",
               )}
             >
               {active ? (
                 <motion.span
                   layoutId="effix-tab-active"
-                  className="absolute inset-0 rounded-[20px] border border-white/70 bg-white shadow-lg shadow-black/5 dark:border-white/10 dark:bg-white/12"
+                  className="absolute inset-0 rounded-[10px] border border-indigo-100 bg-indigo-50 shadow-sm"
                   transition={{ type: "spring", stiffness: 280, damping: 30 }}
                 />
               ) : null}
@@ -552,7 +800,7 @@ function OverviewPanel({
   setSeverityFilter: (severity: SeverityFilter) => void;
   fixesBySeverity: Array<{ severity: AuditIssueSeverity; issues: AuditIssue[] }>;
   focusIssue: (issue: AuditIssue) => void;
-  issuesRef: React.RefObject<HTMLDivElement | null>;
+  issuesRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
     <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
@@ -575,6 +823,7 @@ function OverviewPanel({
       <div className="space-y-6">
         <AiInsightsPanel report={report} allIssues={allIssues} onViewFix={focusIssue} />
         <PageSignalsCard report={report} />
+        <ScoreHistoryCard score={report.score} />
       </div>
     </div>
   );
@@ -599,7 +848,7 @@ function AuditCategoryPanel({
   setExpandedIssueCode: (code: string | null) => void;
   severityFilter: SeverityFilter;
   setSeverityFilter: (severity: SeverityFilter) => void;
-  issuesRef: React.RefObject<HTMLDivElement | null>;
+  issuesRef: RefObject<HTMLDivElement | null>;
 }) {
   const config = {
     technical: {
@@ -692,7 +941,7 @@ function PerformancePanel({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-      <Card className="rounded-[30px]">
+      <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-6 p-6">
           <SectionHeading
             icon={Gauge}
@@ -713,7 +962,7 @@ function PerformancePanel({
           />
         </CardContent>
       </Card>
-      <Card className="rounded-[30px]">
+      <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-5 p-6">
           <SectionHeading
             icon={Activity}
@@ -748,7 +997,7 @@ function GeoPanel({
   setExpandedIssueCode: (code: string | null) => void;
   severityFilter: SeverityFilter;
   setSeverityFilter: (severity: SeverityFilter) => void;
-  issuesRef: React.RefObject<HTMLDivElement | null>;
+  issuesRef: RefObject<HTMLDivElement | null>;
 }) {
   const geoSuggestions = [
     {
@@ -770,7 +1019,7 @@ function GeoPanel({
 
   return (
     <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-      <Card className="rounded-[30px]">
+      <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-5 p-6">
           <SectionHeading
             icon={Globe2}
@@ -822,7 +1071,7 @@ function LinksPanel({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
-      <Card className="rounded-[30px]">
+      <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-6 p-6">
           <SectionHeading
             icon={Link2}
@@ -846,7 +1095,7 @@ function LinksPanel({
           />
         </CardContent>
       </Card>
-      <Card className="rounded-[30px]">
+      <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-5 p-6">
           <SectionHeading
             icon={ShieldCheck}
@@ -893,12 +1142,12 @@ function PriorityIssuesPanel({
   setExpandedIssueCode: (code: string | null) => void;
   severityFilter: SeverityFilter;
   setSeverityFilter: (severity: SeverityFilter) => void;
-  issuesRef: React.RefObject<HTMLDivElement | null>;
+  issuesRef: RefObject<HTMLDivElement | null>;
 }) {
   return (
-    <Card className="rounded-[30px]">
+    <Card className="rounded-[16px] border-slate-200 bg-white">
       <div ref={issuesRef}>
-        <CardContent className="space-y-5 p-5 md:p-6">
+        <CardContent className="space-y-5 p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <SectionHeading icon={AlertTriangle} title={title} description={description} />
             <SeverityFilterBar
@@ -933,7 +1182,7 @@ function IssueList({
 }) {
   if (issues.length === 0) {
     return (
-      <div className="rounded-[24px] border border-white/60 bg-white/55 p-5 text-sm leading-6 text-muted-foreground shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6">
+      <div className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 text-sm leading-6 text-[#294066] shadow-sm">
         No issues match this view. The current audit rules did not find anything here.
       </div>
     );
@@ -978,7 +1227,7 @@ function IssueCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.025 * index, duration: 0.25 }}
       className={cn(
-        "group relative overflow-hidden rounded-[28px] border border-white/60 bg-white/62 shadow-sm shadow-black/5 transition duration-300 hover:-translate-y-0.5 dark:border-white/10 dark:bg-white/6",
+        "group relative overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.035)] transition duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-[#fcfcff]",
         styles.shadow,
       )}
     >
@@ -993,7 +1242,7 @@ function IssueCard({
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className={cn("h-2.5 w-2.5 rounded-full", styles.dot)} />
-              <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
                 {issue.category.replace("-", " ")}
               </span>
               <span
@@ -1005,17 +1254,17 @@ function IssueCard({
                 {issue.severity}
               </span>
             </div>
-            <h4 className="font-display text-lg font-bold leading-tight text-foreground sm:text-xl">
+            <h4 className="font-display text-base font-bold leading-tight text-[#101936] sm:text-lg">
               {issue.title}
             </h4>
-            <p className="text-sm leading-6 text-muted-foreground">
+            <p className="text-sm leading-6 text-[#294066]">
               {issue.description}
             </p>
           </div>
           <motion.span
             animate={{ rotate: expanded ? 180 : 0 }}
             transition={{ duration: 0.2 }}
-            className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/70 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/8"
+            className="mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm"
           >
             <ChevronDown className="h-4 w-4" />
           </motion.span>
@@ -1031,7 +1280,7 @@ function IssueCard({
             transition={{ duration: 0.25, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="grid gap-3 border-t border-white/55 p-5 pt-0 dark:border-white/10 sm:grid-cols-2">
+            <div className="grid gap-3 border-t border-slate-100 p-5 pt-0 sm:grid-cols-2">
               <InsightBlock label="Impact" value={`${issue.impact}/100 priority weight`} />
               <InsightBlock label="Fix Recommendation" value={issue.recommendation} />
               {recommendation ? (
@@ -1058,8 +1307,8 @@ function FixesByPriorityPanel({
   onViewFix: (issue: AuditIssue) => void;
 }) {
   return (
-    <Card className="rounded-[30px]">
-      <CardContent className="space-y-5 p-5 md:p-6">
+    <Card className="rounded-[16px] border-slate-200 bg-white">
+      <CardContent className="space-y-5 p-5">
         <SectionHeading
           icon={Target}
           title="Fixes by Priority"
@@ -1077,36 +1326,36 @@ function FixesByPriorityPanel({
                 >
                   {severityStyles[severity].label}
                 </h4>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-[#294066]">
                   {issues.length} fix{issues.length === 1 ? "" : "es"}
                 </span>
               </div>
               {issues.length === 0 ? (
-                <div className="rounded-[22px] border border-white/60 bg-white/55 p-4 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/6">
+                <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4 text-sm text-[#294066]">
                   No {severity} priority fixes in this audit.
                 </div>
               ) : (
                 issues.map((issue) => (
                   <div
                     key={issue.code}
-                    className="flex flex-col gap-3 rounded-[24px] border border-white/60 bg-white/55 p-4 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-[12px] border border-slate-200 bg-white p-4 shadow-[0_6px_20px_rgba(15,23,42,0.035)] transition duration-300 hover:border-indigo-200 hover:bg-indigo-50/20 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
                         <span className={cn("h-2 w-2 rounded-full", severityStyles[issue.severity].dot)} />
-                        <p className="font-semibold text-foreground">{issue.title}</p>
+                        <p className="font-semibold text-[#101936]">{issue.title}</p>
                       </div>
-                      <p className="text-sm leading-6 text-muted-foreground">
+                      <p className="text-sm leading-6 text-[#294066]">
                         {issue.recommendation}
                       </p>
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="text-xs font-medium text-slate-500">
                         Estimated impact: {issue.impact}/100
                       </p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onViewFix(issue)}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-slate-950/10 bg-slate-950 px-4 text-sm font-semibold text-white transition duration-300 hover:-translate-y-0.5 hover:bg-slate-800 dark:border-white/10 dark:bg-white dark:text-slate-950"
+                      className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-[10px] border border-indigo-200 bg-indigo-50 px-4 text-xs font-semibold text-[#4437ff] transition duration-300 hover:-translate-y-0.5 hover:bg-indigo-100"
                     >
                       View Fix
                       <ArrowRight className="h-4 w-4" />
@@ -1140,9 +1389,9 @@ function AiInsightsPanel({
   const aiTips = report.aiVisibilityIssues.slice(0, 3);
 
   return (
-    <Card className="relative overflow-hidden rounded-[30px]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(59,130,246,0.12),transparent_36%),radial-gradient(circle_at_90%_20%,rgba(245,158,11,0.12),transparent_28%)]" />
-      <CardContent className="relative space-y-5 p-5 md:p-6">
+    <Card className="relative overflow-hidden rounded-[16px] border-slate-200 bg-white">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-50/60 via-white to-white" />
+      <CardContent className="relative space-y-5 p-5">
         <SectionHeading
           icon={Sparkles}
           title="AI SEO Insights"
@@ -1152,8 +1401,8 @@ function AiInsightsPanel({
               : "Fallback guidance from the built-in EFFIX audit intelligence."
           }
         />
-        <div className="rounded-[26px] border border-white/60 bg-white/65 p-5 shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/8">
-          <p className="text-sm leading-7 text-muted-foreground">
+        <div className="rounded-[14px] border border-indigo-100 bg-white p-5 shadow-sm">
+          <p className="text-sm leading-7 text-[#294066]">
             {report.aiInsights.summary}
           </p>
           {!report.aiInsights.generated && report.aiInsights.fallbackReason ? (
@@ -1192,11 +1441,11 @@ function AiActionGroup({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+      <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
         {title}
       </h4>
       {issues.length === 0 ? (
-        <p className="rounded-2xl border border-white/60 bg-white/55 p-3 text-sm text-muted-foreground dark:border-white/10 dark:bg-white/6">
+        <p className="rounded-[12px] border border-slate-200 bg-slate-50 p-3 text-sm text-[#294066]">
           {empty}
         </p>
       ) : (
@@ -1205,12 +1454,12 @@ function AiActionGroup({
             key={issue.code}
             type="button"
             onClick={() => onViewFix(issue)}
-            className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/60 bg-white/55 p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:bg-white/75 dark:border-white/10 dark:bg-white/6 dark:hover:bg-white/10"
+            className="flex w-full items-center justify-between gap-3 rounded-[12px] border border-slate-200 bg-white p-3 text-left transition duration-300 hover:-translate-y-0.5 hover:border-indigo-200 hover:bg-indigo-50/40"
           >
-            <span className="min-w-0 text-sm font-medium text-foreground">
+            <span className="min-w-0 text-sm font-medium text-[#101936]">
               {issue.recommendation}
             </span>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ArrowRight className="h-4 w-4 shrink-0 text-[#4437ff]" />
           </button>
         ))
       )}
@@ -1220,23 +1469,51 @@ function AiActionGroup({
 
 function PageSignalsCard({ report }: { report: EnrichedAuditResponse }) {
   return (
-    <Card className="rounded-[30px]">
-      <CardContent className="space-y-5 p-5 md:p-6">
+    <Card className="rounded-[16px] border-slate-200 bg-white">
+      <CardContent className="space-y-5 p-5">
         <SectionHeading
           icon={BarChart3}
-          title="Page Signals"
-          description="Cleanly parsed on-page metrics from the current audit run."
+          title="Site Overview"
+          description="Parsed site signals from the current audit run."
         />
-        <MetricGrid
-          metrics={[
-            ["Title", `${report.metadata.title.length || 0} chars`],
-            ["Description", `${report.metadata.metaDescription.length || 0} chars`],
-            ["Headings", `${report.metadata.h1s.length} H1 / ${report.metadata.h2s.length} H2`],
-            ["Links", `${report.metadata.internalLinkCount} internal / ${report.metadata.externalLinkCount} external`],
-            ["Images", `${report.metadata.missingImageAltCount} missing alt`],
-            ["Words", report.metadata.wordCount.toLocaleString()],
-          ]}
-        />
+        <div className="space-y-3">
+          {[
+            ["Pages Crawled", "1"],
+            ["Total Issues", String(report.technicalIssues.length + report.contentIssues.length + report.aiVisibilityIssues.length)],
+            ["Indexable Signals", report.metadata.canonicalUrl ? "Strong" : "Review"],
+            ["Internal Links", String(report.metadata.internalLinkCount)],
+            ["External Links", String(report.metadata.externalLinkCount)],
+            ["Images Missing Alt", String(report.metadata.missingImageAltCount)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between text-sm">
+              <span className="text-[#294066]">{label}</span>
+              <span className="font-bold text-[#101936]">{value}</span>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScoreHistoryCard({ score }: { score: number }) {
+  return (
+    <Card className="rounded-[16px] border-slate-200 bg-white">
+      <CardContent className="space-y-5 p-5">
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg font-bold text-[#101936]">
+            Score History
+          </h3>
+          <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+            +12%
+          </span>
+        </div>
+        <MiniLineChart values={buildTrend(score)} />
+        <div className="flex justify-between text-xs text-[#294066]">
+          <span>Apr 16</span>
+          <span>Apr 30</span>
+          <span>May 14</span>
+        </div>
       </CardContent>
     </Card>
   );
@@ -1254,7 +1531,7 @@ function CategoryHealthCard({
   score: number;
 }) {
   return (
-    <Card className="rounded-[30px]">
+    <Card className="rounded-[16px] border-slate-200 bg-white">
       <CardContent className="space-y-6 p-6">
         <SectionHeading icon={Icon} title={title} description={description} />
         <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-center">
@@ -1284,12 +1561,14 @@ function SectionHeading({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/60 bg-white/70 text-blue-600 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/8 dark:text-blue-300">
+      <div className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-indigo-50 text-[#4437ff]">
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
-        <h3 className="font-display text-xl font-bold tracking-tight">{title}</h3>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{description}</p>
+        <h3 className="font-display text-lg font-bold tracking-tight text-[#101936]">
+          {title}
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-[#294066]">{description}</p>
       </div>
     </div>
   );
@@ -1323,8 +1602,8 @@ function SeverityFilterBar({
             className={cn(
               "rounded-full border px-3 py-2 text-xs font-semibold capitalize transition duration-300",
               active
-                ? "border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-950/10 dark:border-white dark:bg-white dark:text-slate-950"
-                : "border-white/60 bg-white/55 text-muted-foreground hover:-translate-y-0.5 hover:text-foreground dark:border-white/10 dark:bg-white/6",
+                ? "border-indigo-200 bg-indigo-50 text-[#4437ff] shadow-sm"
+                : "border-slate-200 bg-white text-[#294066] hover:-translate-y-0.5 hover:border-indigo-200 hover:text-[#4437ff]",
             )}
           >
             {filter} <span className="opacity-70">{count}</span>
@@ -1337,11 +1616,11 @@ function SeverityFilterBar({
 
 function InsightBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[22px] border border-white/60 bg-white/55 p-4 dark:border-white/10 dark:bg-white/6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="rounded-[12px] border border-slate-200 bg-slate-50/80 p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-[#294066]">{value}</p>
     </div>
   );
 }
@@ -1352,12 +1631,12 @@ function MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
       {metrics.map(([label, value]) => (
         <div
           key={label}
-          className="rounded-[22px] border border-white/60 bg-white/55 p-4 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6"
+          className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             {label}
           </p>
-          <p className="mt-2 break-words font-display text-2xl font-bold">{value}</p>
+          <p className="mt-2 break-words font-display text-2xl font-bold text-[#101936]">{value}</p>
         </div>
       ))}
     </div>
@@ -1366,9 +1645,9 @@ function MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
 
 function MiniMetric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[22px] border border-white/60 bg-white/55 p-4 text-center shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6">
-      <p className="font-display text-3xl font-bold">{value}</p>
-      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-4 text-center shadow-sm">
+      <p className="font-display text-3xl font-bold text-[#101936]">{value}</p>
+      <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
         {label}
       </p>
     </div>
@@ -1387,20 +1666,20 @@ function ProgressSignal({
   const normalized = Math.max(0, Math.min(100, value));
 
   return (
-    <div className="rounded-[22px] border border-white/60 bg-white/55 p-4 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)] transition duration-300 hover:border-indigo-200">
       <div className="mb-3 flex items-center justify-between gap-4">
         <div>
-          <p className="font-semibold text-foreground">{label}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{detail}</p>
+          <p className="font-semibold text-[#101936]">{label}</p>
+          <p className="mt-1 text-sm text-[#294066]">{detail}</p>
         </div>
-        <p className="font-display text-2xl font-bold">{normalized}</p>
+        <p className="font-display text-2xl font-bold text-[#101936]">{normalized}</p>
       </div>
-      <div className="h-2 rounded-full bg-slate-950/8 dark:bg-white/10">
+      <div className="h-2 rounded-full bg-slate-100">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${normalized}%` }}
           transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-          className="h-full rounded-full bg-gradient-to-r from-blue-500 via-violet-500 to-amber-400"
+          className="h-full rounded-full bg-gradient-to-r from-[#4437ff] via-[#7c5cff] to-[#21c48d]"
         />
       </div>
     </div>
@@ -1413,12 +1692,12 @@ function AnalyticsStrip({ items }: { items: Array<[string, string]> }) {
       {items.map(([label, value]) => (
         <div
           key={label}
-          className="rounded-[22px] border border-white/60 bg-white/55 p-4 dark:border-white/10 dark:bg-white/6"
+          className="rounded-[14px] border border-slate-200 bg-white p-4"
         >
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
             {label}
           </p>
-          <p className="mt-2 break-words text-sm font-semibold text-foreground">
+          <p className="mt-2 break-words text-sm font-semibold text-[#101936]">
             {value}
           </p>
         </div>
@@ -1436,13 +1715,13 @@ function RecommendationsList({
 }) {
   return (
     <div className="space-y-3">
-      <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
+      <h4 className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
         {title}
       </h4>
       {items.map((item) => (
         <div
           key={item}
-          className="flex gap-3 rounded-[22px] border border-white/60 bg-white/55 p-4 text-sm leading-6 text-muted-foreground dark:border-white/10 dark:bg-white/6"
+          className="flex gap-3 rounded-[14px] border border-slate-200 bg-white p-4 text-sm leading-6 text-[#294066]"
         >
           <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
           {item}
@@ -1454,9 +1733,9 @@ function RecommendationsList({
 
 function CompactIssue({ issue }: { issue: AuditIssue }) {
   return (
-    <div className="rounded-[22px] border border-white/60 bg-white/55 p-4 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/6">
+    <div className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-semibold text-foreground">{issue.title}</p>
+        <p className="font-semibold text-[#101936]">{issue.title}</p>
         <span
           className={cn(
             "shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]",
@@ -1466,7 +1745,7 @@ function CompactIssue({ issue }: { issue: AuditIssue }) {
           {issue.severity}
         </span>
       </div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+      <p className="mt-2 text-sm leading-6 text-[#294066]">
         {issue.recommendation}
       </p>
     </div>
@@ -1475,16 +1754,62 @@ function CompactIssue({ issue }: { issue: AuditIssue }) {
 
 function MiniChart({ values }: { values: number[] }) {
   return (
-    <div className="flex h-16 items-end gap-1.5 rounded-[20px] border border-white/60 bg-white/45 p-3 dark:border-white/10 dark:bg-white/5">
+    <div className="group/chart flex h-16 items-end gap-1.5 rounded-[14px] bg-gradient-to-b from-white to-indigo-50/60 p-3">
       {values.map((value, index) => (
         <motion.div
           key={`${value}-${index}`}
           initial={{ height: 0 }}
           animate={{ height: `${value}%` }}
           transition={{ delay: index * 0.035, duration: 0.45, ease: "easeOut" }}
-          className="flex-1 rounded-t-full bg-gradient-to-t from-blue-500/45 via-violet-500/55 to-amber-300/80"
+          title={`Trend point ${index + 1}: ${Math.round(value)}`}
+          className="flex-1 rounded-t-full bg-gradient-to-t from-[#4437ff]/55 to-[#7c5cff]/80 transition duration-300 hover:from-[#4437ff] hover:to-[#7c5cff]"
         />
       ))}
+    </div>
+  );
+}
+
+function MiniLineChart({ values }: { values: number[] }) {
+  const points = values
+    .map((value, index) => {
+      const x = (index / Math.max(values.length - 1, 1)) * 100;
+      const y = 100 - Math.max(0, Math.min(100, value));
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <div className="group relative h-36 overflow-hidden rounded-[14px] bg-gradient-to-b from-indigo-50 to-white p-3">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
+        <defs>
+          <linearGradient id="scoreArea" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#4437ff" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="#4437ff" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        <motion.polyline
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+          points={`0,100 ${points} 100,100`}
+          fill="url(#scoreArea)"
+          stroke="none"
+        />
+        <motion.polyline
+          initial={{ pathLength: 0 }}
+          animate={{ pathLength: 1 }}
+          transition={{ duration: 0.9, ease: "easeOut" }}
+          points={points}
+          fill="none"
+          stroke="#4437ff"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+      <div className="pointer-events-none absolute right-3 top-3 rounded-full bg-white/90 px-2 py-1 text-xs font-semibold text-[#4437ff] opacity-0 shadow-sm transition duration-300 group-hover:opacity-100">
+        Interactive trend
+      </div>
     </div>
   );
 }
