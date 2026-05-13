@@ -1,0 +1,32 @@
+import * as React from "react";
+
+import { cn } from "@/lib/utils";
+
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "default" | "outline";
+};
+
+const styles = {
+  default:
+    "bg-primary text-primary-foreground hover:-translate-y-0.5 hover:bg-[#facc15] focus-visible:ring-primary/40",
+  outline:
+    "border border-border bg-transparent hover:bg-accent hover:text-accent-foreground",
+};
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className={cn(
+          "inline-flex h-12 items-center justify-center rounded-2xl px-5 text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-60",
+          styles[variant],
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);
+
+Button.displayName = "Button";
