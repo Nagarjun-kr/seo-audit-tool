@@ -19,21 +19,21 @@ const scoreStates = {
     stroke: "#ef4444",
     glow: "",
     badge:
-      "border border-red-500/20 bg-red-500/12 text-red-700 dark:border-red-400/20 dark:text-red-300",
+      "border border-red-500/20 bg-red-500/12 text-red-700",
   },
   "needs-work": {
     label: "Needs Work",
     stroke: "#4437ff",
     glow: "",
     badge:
-      "border border-amber-500/20 bg-amber-500/12 text-amber-700 dark:border-amber-400/20 dark:text-amber-300",
+      "border border-amber-500/20 bg-amber-500/12 text-amber-700",
   },
   strong: {
     label: "Strong",
     stroke: "#10b981",
     glow: "",
     badge:
-      "border border-emerald-500/20 bg-emerald-500/12 text-emerald-700 dark:border-emerald-400/20 dark:text-emerald-300",
+      "border border-emerald-500/20 bg-emerald-500/12 text-emerald-700",
   },
 } as const;
 

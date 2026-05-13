@@ -8,9 +8,9 @@ type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const styles = {
   default:
-    "bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:ring-primary/40 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200",
+    "bg-slate-950 text-white shadow-lg shadow-slate-950/15 hover:-translate-y-0.5 hover:bg-slate-800 focus-visible:ring-primary/40",
   outline:
-    "border border-white/60 bg-white/55 shadow-sm shadow-black/5 hover:-translate-y-0.5 hover:bg-white/75 hover:text-accent-foreground dark:border-white/10 dark:bg-white/6 dark:hover:bg-white/10",
+    "border border-white/60 bg-white/55 shadow-sm shadow-black/5 hover:-translate-y-0.5 hover:bg-white/75 hover:text-accent-foreground",
 };
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(

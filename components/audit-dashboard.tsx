@@ -16,7 +16,6 @@ import {
   Gauge,
   Globe2,
   Link2,
-  Plus,
   Search,
   Share2,
   ShieldCheck,
@@ -26,7 +25,14 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import type {
   AuditIssue,
@@ -77,6 +83,7 @@ const scoreCards = [
 const severities = ["high", "medium", "low"] as const;
 
 type DashboardTabId = (typeof dashboardTabs)[number]["id"];
+type SidebarNavId = DashboardTabId | "recommendations" | "issues" | "export";
 type SeverityFilter = AuditIssueSeverity | "all";
 
 const severityStyles: Record<
@@ -92,27 +99,27 @@ const severityStyles: Record<
 > = {
   high: {
     label: "High Priority",
-    accent: "text-rose-600 dark:text-rose-300",
+    accent: "text-rose-600",
     badge:
-      "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:border-rose-300/20 dark:text-rose-200",
+      "border-rose-500/20 bg-rose-500/10 text-rose-700",
     line: "from-rose-400/70 via-rose-400/20 to-transparent",
     dot: "bg-rose-500",
     shadow: "hover:shadow-[0_24px_80px_rgba(244,63,94,0.14)]",
   },
   medium: {
     label: "Medium Priority",
-    accent: "text-amber-600 dark:text-amber-300",
+    accent: "text-amber-600",
     badge:
-      "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:border-amber-300/20 dark:text-amber-200",
+      "border-amber-500/20 bg-amber-500/10 text-amber-700",
     line: "from-amber-400/80 via-amber-400/20 to-transparent",
     dot: "bg-amber-500",
     shadow: "hover:shadow-[0_24px_80px_rgba(245,158,11,0.14)]",
   },
   low: {
     label: "Low Priority",
-    accent: "text-sky-600 dark:text-sky-300",
+    accent: "text-sky-600",
     badge:
-      "border-sky-500/20 bg-sky-500/10 text-sky-700 dark:border-sky-300/20 dark:text-sky-200",
+      "border-sky-500/20 bg-sky-500/10 text-sky-700",
     line: "from-sky-400/80 via-sky-400/20 to-transparent",
     dot: "bg-sky-500",
     shadow: "hover:shadow-[0_24px_80px_rgba(14,165,233,0.14)]",
@@ -128,6 +135,7 @@ const tabCategoryMap: Partial<Record<DashboardTabId, AuditIssue["category"]>> = 
 
 export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
   const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
+  const [activeNav, setActiveNav] = useState<SidebarNavId>("overview");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [expandedIssueCode, setExpandedIssueCode] = useState<string | null>(
     report.technicalIssues[0]?.code ??
@@ -203,6 +211,7 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
 
   function focusIssue(issue: AuditIssue) {
     setActiveTab(issue.category);
+    setActiveNav(issue.category);
     setSeverityFilter(issue.severity);
     setExpandedIssueCode(issue.code);
     window.setTimeout(() => {
@@ -210,18 +219,85 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
     }, 120);
   }
 
+  function navigateSidebar(target: SidebarNavId) {
+    if (target === "export") {
+      setActiveNav("export");
+      window.print();
+      return;
+    }
+
+    if (target === "recommendations" || target === "issues") {
+      setActiveTab("overview");
+      setActiveNav(target);
+      const elementId =
+        target === "recommendations" ? "recommendations-section" : "issues-section";
+      window.setTimeout(() => {
+        document
+          .getElementById(elementId)
+          ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+      return;
+    }
+
+    setActiveTab(target);
+    setActiveNav(target);
+    window.setTimeout(() => {
+      document
+        .getElementById(`${target}-section`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
+  useEffect(() => {
+    const syncActiveNav = () => {
+      const sections = [
+        "overview-section",
+        "issues-section",
+        "recommendations-section",
+        `${activeTab}-section`,
+      ]
+        .map((id) => document.getElementById(id))
+        .filter(Boolean) as HTMLElement[];
+
+      const visible = sections
+        .map((section) => ({
+          id: section.id,
+          distance: Math.abs(section.getBoundingClientRect().top - 120),
+        }))
+        .sort((a, b) => a.distance - b.distance)[0];
+
+      if (!visible) {
+        return;
+      }
+
+      if (visible.id === "issues-section") {
+        setActiveNav("issues");
+      } else if (visible.id === "recommendations-section") {
+        setActiveNav("recommendations");
+      } else if (visible.id.endsWith("-section")) {
+        const id = visible.id.replace("-section", "") as DashboardTabId;
+        if (dashboardTabs.some((tab) => tab.id === id)) {
+          setActiveNav(id);
+        }
+      }
+    };
+
+    window.addEventListener("scroll", syncActiveNav, { passive: true });
+    return () => window.removeEventListener("scroll", syncActiveNav);
+  }, [activeTab]);
+
   return (
     <motion.section
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className="relative mx-auto mt-12 w-full max-w-[1560px]"
+      className="relative min-h-screen w-full"
     >
-      <div className="overflow-hidden rounded-[34px] border border-slate-200/80 bg-[#f7f8fc] shadow-[0_28px_100px_rgba(15,23,42,0.10)]">
+      <div className="min-h-screen overflow-hidden border-slate-200/80 bg-[#f7f8fc]">
         <div className="grid min-h-[940px] lg:grid-cols-[248px_1fr]">
           <DashboardSidebar
-            activeTab={activeTab}
-            onChange={setActiveTab}
+            activeNav={activeNav}
+            onNavigate={navigateSidebar}
             report={report}
           />
 
@@ -231,20 +307,9 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
             <main className="space-y-5 px-4 pb-6 sm:px-6 lg:px-8">
               <ResultsHero report={report} issueCounts={issueCounts} />
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {scoreCards.map((card, index) => (
-                  <ScoreInsightCard
-                    key={card.key}
-                    index={index}
-                    title={card.label}
-                    icon={card.icon}
-                    score={report.scoreBreakdown[card.key]}
-                    insight={card.insight}
-                  />
-                ))}
-              </div>
+              <MinimalMetricBlocks report={report} />
 
-              <TabNav activeTab={activeTab} onChange={setActiveTab} />
+              <TabNav activeTab={activeTab} onChange={navigateSidebar} />
 
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
@@ -307,16 +372,16 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
 }
 
 function DashboardSidebar({
-  activeTab,
-  onChange,
+  activeNav,
+  onNavigate,
   report,
 }: {
-  activeTab: DashboardTabId;
-  onChange: (tab: DashboardTabId) => void;
+  activeNav: SidebarNavId;
+  onNavigate: (target: SidebarNavId) => void;
   report: EnrichedAuditResponse;
 }) {
   return (
-    <aside className="bg-white px-4 py-6">
+    <aside className="sticky top-0 h-screen overflow-y-auto bg-white px-4 py-6">
       <div className="mb-8 flex items-center gap-3 px-2">
         <div className="flex h-9 w-9 rotate-45 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#3f37ff] to-[#7657ff] shadow-lg shadow-indigo-500/20">
           <div className="h-3.5 w-3.5 rounded-[4px] border-2 border-white" />
@@ -326,23 +391,11 @@ function DashboardSidebar({
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={() => {
-          onChange("overview");
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }}
-        className="mb-8 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#3f37ff] to-[#5c4dff] text-sm font-semibold text-white shadow-[0_14px_30px_rgba(63,55,255,0.28)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(63,55,255,0.34)] active:translate-y-0"
-      >
-        <Plus className="h-4 w-4" />
-        New Audit
-      </button>
-
       <SidebarSection title="Main">
         <SidebarItem
           tab={{ id: "overview", label: "Overview", icon: Search }}
-          active={activeTab === "overview"}
-          onClick={() => onChange("overview")}
+          active={activeNav === "overview"}
+          onClick={() => onNavigate("overview")}
         />
       </SidebarSection>
 
@@ -351,46 +404,48 @@ function DashboardSidebar({
           <SidebarItem
             key={tab.id}
             tab={tab}
-            active={activeTab === tab.id}
-            onClick={() => onChange(tab.id)}
+            active={activeNav === tab.id}
+            onClick={() => onNavigate(tab.id)}
           />
         ))}
       </SidebarSection>
 
       <SidebarSection title="Reports">
         <SidebarItem
-          tab={{ id: "overview", label: "Recommendations", icon: ClipboardList }}
-          active={false}
-          onClick={() => onChange("overview")}
+          tab={{ id: "recommendations", label: "Recommendations", icon: ClipboardList }}
+          active={activeNav === "recommendations"}
+          onClick={() => onNavigate("recommendations")}
         />
         <SidebarItem
-          tab={{ id: "overview", label: "Issues", icon: AlertTriangle }}
-          active={false}
-          onClick={() => onChange("overview")}
+          tab={{ id: "issues", label: "Issues", icon: AlertTriangle }}
+          active={activeNav === "issues"}
+          onClick={() => onNavigate("issues")}
         />
         <SidebarItem
-          tab={{ id: "overview", label: "Export Report", icon: Download }}
-          active={false}
-          onClick={() => onChange("overview")}
+          tab={{ id: "export", label: "Export Report", icon: Download }}
+          active={activeNav === "export"}
+          onClick={() => onNavigate("export")}
         />
       </SidebarSection>
 
-      <div className="mt-8 rounded-[18px] border border-indigo-100 bg-gradient-to-b from-white to-indigo-50/70 p-5 text-center shadow-sm">
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-600">
-          <Sparkles className="h-5 w-5" />
+      <div className="mt-8 rounded-[18px] border border-indigo-100 bg-gradient-to-b from-white to-indigo-50/70 p-5 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+          Audit Host
+        </p>
+        <p className="mt-2 truncate font-display text-lg font-bold text-[#101936]">
+          {report.metadata.hostname}
+        </p>
+        <div className="mt-4 h-1.5 rounded-full bg-indigo-100">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${report.score}%` }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="h-full rounded-full bg-gradient-to-r from-[#4437ff] to-[#7c5cff]"
+          />
         </div>
-        <p className="font-display text-base font-bold text-[#101936]">
-          Upgrade to Pro
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          Scroll or use the navigation to inspect every audit dimension.
         </p>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
-          Unlock deeper monitoring, team workflows, and advanced insights.
-        </p>
-        <button
-          type="button"
-          className="mt-4 h-10 w-full rounded-[12px] bg-gradient-to-r from-[#3f37ff] to-[#5c4dff] text-sm font-semibold text-white shadow-md shadow-indigo-500/20 transition duration-300 hover:-translate-y-0.5"
-        >
-          Upgrade Now
-        </button>
       </div>
 
       <div className="mt-8 flex items-center gap-3 px-2">
@@ -428,7 +483,7 @@ function SidebarItem({
   active,
   onClick,
 }: {
-  tab: { id: DashboardTabId; label: string; icon: LucideIcon };
+  tab: { id: SidebarNavId; label: string; icon: LucideIcon };
   active: boolean;
   onClick: () => void;
 }) {
@@ -477,10 +532,6 @@ function DashboardTopHeader({ report }: { report: EnrichedAuditResponse }) {
     window.print();
   }
 
-  function runNewAudit() {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   return (
     <header className="flex flex-col gap-4 px-4 py-7 sm:px-6 lg:flex-row lg:items-start lg:justify-between lg:px-8">
       <div>
@@ -500,14 +551,6 @@ function DashboardTopHeader({ report }: { report: EnrichedAuditResponse }) {
       <div className="flex flex-wrap gap-3">
         <HeaderAction icon={Share2} label="Share" onClick={shareReport} />
         <HeaderAction icon={Download} label="Export PDF" onClick={exportReport} />
-        <button
-          type="button"
-          onClick={runNewAudit}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] bg-gradient-to-r from-[#3f37ff] to-[#5d4cff] px-5 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(63,55,255,0.25)] transition duration-300 hover:-translate-y-0.5 active:translate-y-0"
-        >
-          <Sparkles className="h-4 w-4" />
-          Run New Audit
-        </button>
       </div>
     </header>
   );
@@ -545,6 +588,7 @@ function ResultsHero({
 
   return (
     <Card className="relative overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+      <div id="overview-section" className="absolute -top-24" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(83,72,255,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(247,249,255,0.92))]" />
       <div className="pointer-events-none absolute left-1/3 top-10 h-40 w-96 -rotate-6 rounded-full bg-gradient-to-r from-transparent via-indigo-200/30 to-transparent blur-xl" />
       <CardContent className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_240px_300px] lg:items-center">
@@ -682,6 +726,82 @@ function HeroStat({
   );
 }
 
+function MinimalMetricBlocks({ report }: { report: EnrichedAuditResponse }) {
+  const metrics = scoreCards.map(({ key, label, icon, insight }) => ({
+    label,
+    icon,
+    insight,
+    score: report.scoreBreakdown[key],
+    tone: key === "aiVisibility" ? "orange" : "violet",
+  }));
+
+  return (
+    <Card className="overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_14px_44px_rgba(15,23,42,0.05)]">
+      <div className="grid divide-y divide-slate-200 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
+        {metrics.map(({ label, icon: Icon, insight, score, tone }, index) => {
+          const status = getScoreLabel(score);
+
+          return (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05, duration: 0.28 }}
+              className="group relative p-6 transition duration-300 hover:bg-indigo-50/30"
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={cn(
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-full",
+                    tone === "orange"
+                      ? "bg-orange-50 text-orange-500"
+                      : "bg-indigo-50 text-[#5b45ff]",
+                  )}
+                >
+                  <Icon className="h-5 w-5 transition duration-300 group-hover:scale-110" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-display text-lg font-bold text-[#101936]">
+                        {label}
+                      </p>
+                      <p className="mt-2 font-display text-4xl font-bold tracking-tight text-[#101936]">
+                        {score}
+                        <span className="ml-1 text-base font-medium text-[#294066]">
+                          /100
+                        </span>
+                      </p>
+                    </div>
+                    <ScoreBadge score={score} />
+                  </div>
+
+                  <div className="mt-5 h-1.5 rounded-full bg-slate-100">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${score}%` }}
+                      transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                      title={`${label}: ${score}/100 (${status})`}
+                      className={cn(
+                        "h-full rounded-full shadow-[0_4px_12px_rgba(68,55,255,0.16)]",
+                        tone === "orange"
+                          ? "bg-gradient-to-r from-orange-400 to-amber-300"
+                          : "bg-gradient-to-r from-[#4437ff] to-[#7c5cff]",
+                      )}
+                    />
+                  </div>
+
+                  <p className="mt-4 text-sm leading-6 text-[#64708f]">{insight}</p>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 function ScoreInsightCard({
   title,
   icon: Icon,
@@ -806,6 +926,7 @@ function OverviewPanel({
     <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
       <div className="space-y-6">
         <PriorityIssuesPanel
+          sectionId="issues-section"
           title="Priority Issues"
           description="Filter, expand, and work through the issues that most affect search and AI visibility."
           issues={activeIssues}
@@ -817,11 +938,20 @@ function OverviewPanel({
           setSeverityFilter={setSeverityFilter}
           issuesRef={issuesRef}
         />
-        <FixesByPriorityPanel groups={fixesBySeverity} onViewFix={focusIssue} />
+        <FixesByPriorityPanel
+          sectionId="fixes-section"
+          groups={fixesBySeverity}
+          onViewFix={focusIssue}
+        />
       </div>
 
       <div className="space-y-6">
-        <AiInsightsPanel report={report} allIssues={allIssues} onViewFix={focusIssue} />
+        <AiInsightsPanel
+          sectionId="recommendations-section"
+          report={report}
+          allIssues={allIssues}
+          onViewFix={focusIssue}
+        />
         <PageSignalsCard report={report} />
         <ScoreHistoryCard score={report.score} />
       </div>
@@ -893,12 +1023,13 @@ function AuditCategoryPanel({
   }[tabId];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+    <div id={`${tabId}-section`} className="grid scroll-mt-24 gap-6 xl:grid-cols-[0.92fr_1.08fr]">
       <div className="space-y-6">
         <CategoryHealthCard {...config} />
         <MetricGrid metrics={config.metrics as Array<[string, string]>} />
       </div>
       <PriorityIssuesPanel
+        sectionId="issues-section"
         title={`${config.title} Findings`}
         description={config.description}
         issues={issues}
@@ -940,7 +1071,7 @@ function PerformancePanel({
   ];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+    <div id="performance-section" className="grid scroll-mt-24 gap-6 lg:grid-cols-[1fr_0.9fr]">
       <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-6 p-6">
           <SectionHeading
@@ -1018,7 +1149,7 @@ function GeoPanel({
   ];
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+    <div id="geo-section" className="grid scroll-mt-24 gap-6 xl:grid-cols-[0.9fr_1.1fr]">
       <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-5 p-6">
           <SectionHeading
@@ -1045,6 +1176,7 @@ function GeoPanel({
         </CardContent>
       </Card>
       <PriorityIssuesPanel
+        sectionId="issues-section"
         title="AI Visibility & GEO Findings"
         description="Issues that can reduce answer-engine confidence and AI summary eligibility."
         issues={issues}
@@ -1070,7 +1202,7 @@ function LinksPanel({
   const totalLinks = report.metadata.internalLinkCount + report.metadata.externalLinkCount;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+    <div id="links-section" className="grid scroll-mt-24 gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <Card className="rounded-[16px] border-slate-200 bg-white">
         <CardContent className="space-y-6 p-6">
           <SectionHeading
@@ -1122,6 +1254,7 @@ function LinksPanel({
 }
 
 function PriorityIssuesPanel({
+  sectionId,
   title,
   description,
   issues,
@@ -1133,6 +1266,7 @@ function PriorityIssuesPanel({
   setSeverityFilter,
   issuesRef,
 }: {
+  sectionId?: string;
   title: string;
   description: string;
   issues: AuditIssue[];
@@ -1146,7 +1280,7 @@ function PriorityIssuesPanel({
 }) {
   return (
     <Card className="rounded-[16px] border-slate-200 bg-white">
-      <div ref={issuesRef}>
+      <div id={sectionId} ref={issuesRef} className="scroll-mt-24">
         <CardContent className="space-y-5 p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <SectionHeading icon={AlertTriangle} title={title} description={description} />
@@ -1300,14 +1434,19 @@ function IssueCard({
 }
 
 function FixesByPriorityPanel({
+  sectionId,
   groups,
   onViewFix,
 }: {
+  sectionId?: string;
   groups: Array<{ severity: AuditIssueSeverity; issues: AuditIssue[] }>;
   onViewFix: (issue: AuditIssue) => void;
 }) {
   return (
-    <Card className="rounded-[16px] border-slate-200 bg-white">
+    <Card
+      id={sectionId}
+      className="scroll-mt-24 rounded-[16px] border-slate-200 bg-white"
+    >
       <CardContent className="space-y-5 p-5">
         <SectionHeading
           icon={Target}
@@ -1372,10 +1511,12 @@ function FixesByPriorityPanel({
 }
 
 function AiInsightsPanel({
+  sectionId,
   report,
   allIssues,
   onViewFix,
 }: {
+  sectionId?: string;
   report: EnrichedAuditResponse;
   allIssues: AuditIssue[];
   onViewFix: (issue: AuditIssue) => void;
@@ -1389,7 +1530,10 @@ function AiInsightsPanel({
   const aiTips = report.aiVisibilityIssues.slice(0, 3);
 
   return (
-    <Card className="relative overflow-hidden rounded-[16px] border-slate-200 bg-white">
+    <Card
+      id={sectionId}
+      className="relative scroll-mt-24 overflow-hidden rounded-[16px] border-slate-200 bg-white"
+    >
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-50/60 via-white to-white" />
       <CardContent className="relative space-y-5 p-5">
         <SectionHeading
@@ -1406,7 +1550,7 @@ function AiInsightsPanel({
             {report.aiInsights.summary}
           </p>
           {!report.aiInsights.generated && report.aiInsights.fallbackReason ? (
-            <p className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-700 dark:text-amber-200">
+            <p className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-700">
               Fallback reason: {report.aiInsights.fallbackReason}
             </p>
           ) : null}
@@ -1823,7 +1967,7 @@ function ScoreBadge({ score }: { score: number }) {
           ? severityStyles.high.badge
           : score <= 79
             ? severityStyles.medium.badge
-            : "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:border-emerald-300/20 dark:text-emerald-200",
+            : "border-emerald-500/20 bg-emerald-500/10 text-emerald-700",
       )}
     >
       {getScoreLabel(score)}
