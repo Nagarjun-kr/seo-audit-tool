@@ -16,9 +16,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "SEO Audit & AI Visibility Tool",
+  title: "EFFIX | AI SEO Visibility Platform",
   description:
-    "Run a simple SEO and AI visibility audit with a clean, modern dashboard.",
+    "Run premium SEO, GEO, content, technical, and AI visibility audits in a polished analytics dashboard.",
 };
 
 export default function RootLayout({

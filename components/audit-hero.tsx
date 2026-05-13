@@ -1,7 +1,15 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { Globe, LoaderCircle, Sparkles, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Globe,
+  LoaderCircle,
+  Radar,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import type { EnrichedAuditResponse } from "@/lib/audit";
@@ -12,9 +20,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 const featurePills = [
-  "SEO Snapshot",
+  "Technical SEO Intelligence",
   "AI Answer Visibility",
-  "Content Signals",
+  "GEO Optimization",
 ];
 
 const loadingMessages = [
@@ -122,50 +130,59 @@ export function AuditHero() {
 
   return (
     <main className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-hero-grid bg-[size:48px_48px] opacity-[0.08] dark:opacity-[0.06]" />
-      <div className="absolute left-1/2 top-24 -z-10 h-[28rem] w-[28rem] -translate-x-1/2 rounded-full bg-amber-300/30 blur-3xl dark:bg-amber-400/10" />
+      <div className="absolute inset-0 -z-10 bg-hero-grid bg-[size:52px_52px] opacity-[0.12] dark:opacity-[0.06]" />
+      <div className="absolute left-1/2 top-20 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-blue-400/18 blur-3xl dark:bg-blue-500/12" />
+      <div className="absolute right-0 top-44 -z-10 h-[24rem] w-[24rem] rounded-full bg-violet-400/12 blur-3xl" />
 
-      <section className="mx-auto min-h-screen max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex justify-end">
+      <section className="mx-auto min-h-screen max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/55 px-3 py-2 text-sm font-bold tracking-tight shadow-sm shadow-black/5 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-950 text-[11px] text-white dark:bg-white dark:text-slate-950">
+              EF
+            </span>
+            EFFIX
+          </div>
           <ThemeToggle />
         </div>
 
-        <div className="mx-auto flex max-w-5xl flex-col items-center pt-10 text-center md:pt-16">
+        <div className="mx-auto flex max-w-5xl flex-col items-center pt-12 text-center md:pt-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            className="glass mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm text-muted-foreground"
+            className="glass mb-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted-foreground"
           >
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            Modern audit tooling for search and generative engines
+            <Sparkles className="h-4 w-4 text-blue-500" />
+            AI SEO visibility platform for modern brands
           </motion.div>
 
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.05 }}
-            className="max-w-4xl font-display text-5xl font-bold tracking-tight md:text-7xl"
+            className="premium-gradient-text max-w-5xl font-display text-5xl font-bold tracking-tight md:text-7xl"
           >
-            SEO Audit &amp; AI Visibility Tool
+            EFFIX AI SEO Visibility Platform
           </motion.h1>
 
           <motion.p
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.1 }}
-            className="mt-5 max-w-2xl text-lg text-muted-foreground md:text-xl"
+            className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground md:text-xl"
           >
-            Simple, Affordable SEO / GEO Toolset
+            Run premium SEO, content, technical, link, and generative-engine
+            audits in one calm analytics workspace built for startups and
+            professional growth teams.
           </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.15 }}
-            className="mt-12 w-full max-w-3xl"
+            className="mt-10 w-full max-w-3xl"
           >
-            <Card className="glass-strong rounded-[32px]">
+            <Card className="glass-strong rounded-[30px]">
               <CardContent className="p-4 md:p-5">
                 <form
                   onSubmit={handleSubmit}
@@ -185,7 +202,7 @@ export function AuditHero() {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="h-14 min-w-36 rounded-2xl text-base"
+                    className="h-14 min-w-40 rounded-2xl text-base"
                   >
                     {loading ? (
                       <>
@@ -195,7 +212,7 @@ export function AuditHero() {
                     ) : (
                       <>
                         <Zap className="mr-2 h-5 w-5" />
-                        Audit
+                        Run Audit
                       </>
                     )}
                   </Button>
@@ -219,7 +236,7 @@ export function AuditHero() {
             {featurePills.map((pill) => (
               <span
                 key={pill}
-                className="glass rounded-full px-4 py-2 text-sm text-muted-foreground transition duration-300 hover:-translate-y-0.5"
+                className="glass rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition duration-300 hover:-translate-y-0.5 hover:text-foreground"
               >
                 {pill}
               </span>
@@ -234,30 +251,49 @@ export function AuditHero() {
           >
             {[
               {
-                title: "Fast Audit Flow",
-                body: "Enter a URL and get a clean dashboard with immediate SEO and AI visibility signals.",
+                icon: Radar,
+                title: "Live SEO Intelligence",
+                body: "Analyze technical health, content structure, and visibility signals from a single URL audit.",
               },
               {
-                title: "Built for GEO",
-                body: "Surface content and entity opportunities that help brands appear in AI-generated answers.",
+                icon: Sparkles,
+                title: "AI Visibility Guidance",
+                body: "Turn audit issues into clear fixes for answer engines, AI summaries, and search performance.",
               },
               {
-                title: "Minimal by Design",
-                body: "A polished SaaS landing experience with glass cards, motion, and strong mobile behavior.",
+                icon: BadgeCheck,
+                title: "Agency-Ready Workflow",
+                body: "Prioritize fixes by severity, impact, and effort inside a polished analytics dashboard.",
               },
-            ].map((item) => (
-              <Card
-                key={item.title}
-                className="transition duration-300 hover:-translate-y-1 hover:shadow-glow"
-              >
-                <CardContent className="space-y-3 p-6 text-left">
-                  <h2 className="font-display text-xl font-bold">{item.title}</h2>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {item.body}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+            ].map((item, index) => {
+              const Icon = item.icon;
+
+              return (
+                <Card
+                  key={item.title}
+                  className="group transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_80px_rgba(15,23,42,0.10)]"
+                >
+                  <CardContent className="space-y-3 p-6 text-left">
+                    <div className="flex items-center justify-between">
+                      <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/70 bg-white/70 text-blue-600 shadow-sm shadow-black/5 dark:border-white/10 dark:bg-white/8 dark:text-blue-300">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        0{index + 1}
+                      </span>
+                    </div>
+                    <h2 className="font-display text-xl font-bold">{item.title}</h2>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {item.body}
+                    </p>
+                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-foreground opacity-0 transition duration-300 group-hover:opacity-100">
+                      Explore signal
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </motion.div>
         </div>
 
@@ -271,17 +307,25 @@ export function AuditHero() {
               <CardContent className="flex flex-col items-center gap-6 p-8 text-center">
                 <div className="relative flex h-20 w-20 items-center justify-center">
                   <motion.div
-                    className="absolute inset-0 rounded-full border border-amber-400/25"
+                    className="absolute inset-0 rounded-full border border-blue-400/25"
                     animate={{ scale: [1, 1.12, 1], opacity: [0.55, 0.2, 0.55] }}
-                    transition={{ duration: 2.2, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+                    transition={{
+                      duration: 2.2,
+                      repeat: Number.POSITIVE_INFINITY,
+                      ease: "easeInOut",
+                    }}
                   />
                   <motion.div
-                    className="absolute inset-2 rounded-full border-2 border-transparent border-t-amber-500 border-r-amber-300"
+                    className="absolute inset-2 rounded-full border-2 border-transparent border-r-violet-400 border-t-blue-500"
                     animate={{ rotate: 360 }}
-                    transition={{ duration: 1.15, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                    transition={{
+                      duration: 1.15,
+                      repeat: Number.POSITIVE_INFINITY,
+                      ease: "linear",
+                    }}
                   />
                   <div className="glass flex h-12 w-12 items-center justify-center rounded-full">
-                    <LoaderCircle className="h-5 w-5 animate-spin text-amber-500" />
+                    <LoaderCircle className="h-5 w-5 animate-spin text-blue-500" />
                   </div>
                 </div>
 

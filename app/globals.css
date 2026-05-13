@@ -4,31 +4,31 @@
 
 @layer base {
   :root {
-    --background: 48 33% 97%;
-    --foreground: 220 26% 12%;
-    --muted: 48 24% 92%;
-    --muted-foreground: 220 10% 40%;
-    --border: 40 18% 82%;
+    --background: 220 33% 98%;
+    --foreground: 222 31% 9%;
+    --muted: 220 24% 94%;
+    --muted-foreground: 221 12% 43%;
+    --border: 220 18% 86%;
     --card: 0 0% 100%;
-    --card-foreground: 220 26% 12%;
-    --primary: 42 96% 56%;
-    --primary-foreground: 220 26% 12%;
-    --accent: 47 100% 95%;
-    --accent-foreground: 220 26% 12%;
+    --card-foreground: 222 31% 9%;
+    --primary: 222 92% 56%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 220 28% 94%;
+    --accent-foreground: 222 31% 9%;
   }
 
   .dark {
-    --background: 220 28% 8%;
-    --foreground: 48 33% 96%;
-    --muted: 220 19% 14%;
-    --muted-foreground: 40 14% 70%;
-    --border: 220 15% 20%;
-    --card: 220 24% 10%;
-    --card-foreground: 48 33% 96%;
-    --primary: 43 96% 58%;
-    --primary-foreground: 220 26% 10%;
-    --accent: 220 18% 14%;
-    --accent-foreground: 48 33% 96%;
+    --background: 222 38% 7%;
+    --foreground: 220 30% 96%;
+    --muted: 222 24% 14%;
+    --muted-foreground: 220 14% 70%;
+    --border: 222 16% 20%;
+    --card: 222 28% 10%;
+    --card-foreground: 220 30% 96%;
+    --primary: 218 96% 62%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 222 22% 15%;
+    --accent-foreground: 220 30% 96%;
   }
 
   * {
@@ -42,17 +42,31 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at top, rgba(251, 191, 36, 0.18), transparent 30%),
-      radial-gradient(circle at bottom right, rgba(15, 23, 42, 0.12), transparent 30%);
+      radial-gradient(circle at 18% 0%, rgba(59, 130, 246, 0.15), transparent 32%),
+      radial-gradient(circle at 82% 8%, rgba(139, 92, 246, 0.12), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.10), transparent 28%),
+      linear-gradient(180deg, rgba(255,255,255,0.86), rgba(245,247,251,0.96));
+  }
+
+  .dark body {
+    background-image:
+      radial-gradient(circle at 18% 0%, rgba(59, 130, 246, 0.18), transparent 32%),
+      radial-gradient(circle at 82% 8%, rgba(139, 92, 246, 0.14), transparent 30%),
+      radial-gradient(circle at bottom right, rgba(245, 158, 11, 0.08), transparent 28%),
+      linear-gradient(180deg, rgba(9,13,24,0.96), rgba(7,10,18,1));
   }
 }
 
 @layer utilities {
   .glass {
-    @apply border border-white/20 bg-white/55 shadow-2xl shadow-black/5 backdrop-blur-2xl dark:border-white/10 dark:bg-white/5;
+    @apply border border-white/60 bg-white/55 shadow-2xl shadow-slate-950/5 backdrop-blur-2xl dark:border-white/10 dark:bg-white/5 dark:shadow-black/20;
   }
 
   .glass-strong {
-    @apply border border-white/30 bg-white/75 shadow-glow backdrop-blur-2xl dark:border-white/10 dark:bg-white/10;
+    @apply border border-white/70 bg-white/75 shadow-glow backdrop-blur-2xl dark:border-white/10 dark:bg-white/10;
+  }
+
+  .premium-gradient-text {
+    @apply bg-gradient-to-r from-slate-950 via-blue-700 to-violet-700 bg-clip-text text-transparent dark:from-white dark:via-blue-100 dark:to-violet-200;
   }
 }
