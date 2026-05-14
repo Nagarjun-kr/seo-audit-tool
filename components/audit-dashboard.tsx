@@ -84,6 +84,7 @@ const severities = ["high", "medium", "low"] as const;
 
 type DashboardTabId = (typeof dashboardTabs)[number]["id"];
 type SidebarNavId = DashboardTabId | "recommendations" | "issues" | "export";
+type MainViewId = Exclude<SidebarNavId, "export">;
 type SeverityFilter = AuditIssueSeverity | "all";
 
 const severityStyles: Record<
@@ -134,8 +135,7 @@ const tabCategoryMap: Partial<Record<DashboardTabId, AuditIssue["category"]>> = 
 };
 
 export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
-  const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
-  const [activeNav, setActiveNav] = useState<SidebarNavId>("overview");
+  const [activeView, setActiveView] = useState<MainViewId>("overview");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
   const [expandedIssueCode, setExpandedIssueCode] = useState<string | null>(
     report.technicalIssues[0]?.code ??
@@ -144,6 +144,9 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
       null,
   );
   const issuesRef = useRef<HTMLDivElement>(null);
+  const mainViewportRef = useRef<HTMLDivElement>(null);
+  const activeViewRef = useRef<MainViewId>("overview");
+  const savedScrollByView = useRef<Partial<Record<MainViewId, number>>>({});
 
   const allIssues = useMemo(
     () => [
@@ -176,17 +179,20 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
   );
 
   const activeIssues = useMemo(() => {
-    const category = tabCategoryMap[activeTab];
+    const category =
+      activeView === "recommendations" || activeView === "issues"
+        ? undefined
+        : tabCategoryMap[activeView];
     const source = category
       ? allIssues.filter((issue) => issue.category === category)
-      : activeTab === "links"
+      : activeView === "links"
         ? allIssues.filter(
             (issue) =>
               issue.code.includes("link") ||
               issue.code.includes("canonical") ||
               issue.category === "ai-visibility",
           )
-        : activeTab === "performance"
+        : activeView === "performance"
           ? allIssues.filter(
               (issue) =>
                 issue.code.includes("viewport") ||
@@ -198,7 +204,7 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
     return severityFilter === "all"
       ? source
       : source.filter((issue) => issue.severity === severityFilter);
-  }, [activeTab, allIssues, severityFilter]);
+  }, [activeView, allIssues, severityFilter]);
 
   const fixesBySeverity = useMemo(
     () =>
@@ -209,9 +215,21 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
     [allIssues],
   );
 
+  function saveCurrentScroll() {
+    savedScrollByView.current[activeViewRef.current] =
+      mainViewportRef.current?.scrollTop ?? 0;
+  }
+
+  function switchView(target: MainViewId, restoreScroll = true) {
+    saveCurrentScroll();
+    if (!restoreScroll) {
+      savedScrollByView.current[target] = 0;
+    }
+    setActiveView(target);
+  }
+
   function focusIssue(issue: AuditIssue) {
-    setActiveTab(issue.category);
-    setActiveNav(issue.category);
+    switchView(issue.category, false);
     setSeverityFilter(issue.severity);
     setExpandedIssueCode(issue.code);
     window.setTimeout(() => {
@@ -221,105 +239,54 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
 
   function navigateSidebar(target: SidebarNavId) {
     if (target === "export") {
-      setActiveNav("export");
       window.print();
       return;
     }
 
-    if (target === "recommendations" || target === "issues") {
-      setActiveTab("overview");
-      setActiveNav(target);
-      const elementId =
-        target === "recommendations" ? "recommendations-section" : "issues-section";
-      window.setTimeout(() => {
-        document
-          .getElementById(elementId)
-          ?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 120);
-      return;
-    }
-
-    setActiveTab(target);
-    setActiveNav(target);
-    window.setTimeout(() => {
-      document
-        .getElementById(`${target}-section`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
+    switchView(target);
   }
 
   useEffect(() => {
-    const syncActiveNav = () => {
-      const sections = [
-        "overview-section",
-        "issues-section",
-        "recommendations-section",
-        `${activeTab}-section`,
-      ]
-        .map((id) => document.getElementById(id))
-        .filter(Boolean) as HTMLElement[];
+    activeViewRef.current = activeView;
+    const scrollTop = savedScrollByView.current[activeView] ?? 0;
+    const frame = window.requestAnimationFrame(() => {
+      mainViewportRef.current?.scrollTo({ top: scrollTop, behavior: "auto" });
+    });
 
-      const visible = sections
-        .map((section) => ({
-          id: section.id,
-          distance: Math.abs(section.getBoundingClientRect().top - 120),
-        }))
-        .sort((a, b) => a.distance - b.distance)[0];
-
-      if (!visible) {
-        return;
-      }
-
-      if (visible.id === "issues-section") {
-        setActiveNav("issues");
-      } else if (visible.id === "recommendations-section") {
-        setActiveNav("recommendations");
-      } else if (visible.id.endsWith("-section")) {
-        const id = visible.id.replace("-section", "") as DashboardTabId;
-        if (dashboardTabs.some((tab) => tab.id === id)) {
-          setActiveNav(id);
-        }
-      }
-    };
-
-    window.addEventListener("scroll", syncActiveNav, { passive: true });
-    return () => window.removeEventListener("scroll", syncActiveNav);
-  }, [activeTab]);
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeView]);
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: "easeOut" }}
-      className="relative min-h-screen w-full"
+      className="relative h-screen w-full overflow-hidden"
     >
-      <div className="min-h-screen overflow-hidden border-slate-200/80 bg-[#f7f8fc]">
-        <div className="grid min-h-[940px] lg:grid-cols-[248px_1fr]">
+      <div className="h-screen overflow-hidden border-slate-200/80 bg-[#f7f8fc]">
+        <div className="grid h-screen grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[248px_minmax(0,1fr)] lg:grid-rows-1">
           <DashboardSidebar
-            activeNav={activeNav}
+            activeNav={activeView}
             onNavigate={navigateSidebar}
             report={report}
           />
 
-          <div className="min-w-0 border-l border-slate-200/80 bg-[#f8f9fd]">
+          <div
+            ref={mainViewportRef}
+            className="min-w-0 overflow-y-auto border-l border-slate-200/80 bg-[#f8f9fd] scroll-smooth"
+          >
             <DashboardTopHeader report={report} />
 
-            <main className="space-y-5 px-4 pb-6 sm:px-6 lg:px-8">
-              <ResultsHero report={report} issueCounts={issueCounts} />
-
-              <MinimalMetricBlocks report={report} />
-
-              <TabNav activeTab={activeTab} onChange={navigateSidebar} />
-
+            <main className="px-4 pb-6 sm:px-6 lg:px-8">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.24, ease: "easeOut" }}
+                  key={activeView}
+                  initial={{ opacity: 0, y: 12, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, y: -8, filter: "blur(2px)" }}
+                  transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  {activeTab === "overview" ? (
+                  {activeView === "overview" ? (
                     <OverviewPanel
                       report={report}
                       allIssues={allIssues}
@@ -332,10 +299,11 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
                       fixesBySeverity={fixesBySeverity}
                       focusIssue={focusIssue}
                       issuesRef={issuesRef}
+                      issueCounts={issueCounts}
                     />
-                  ) : activeTab === "performance" ? (
+                  ) : activeView === "performance" ? (
                     <PerformancePanel report={report} issues={activeIssues} />
-                  ) : activeTab === "geo" ? (
+                  ) : activeView === "geo" ? (
                     <GeoPanel
                       report={report}
                       issues={activeIssues}
@@ -346,11 +314,29 @@ export function AuditDashboard({ report }: { report: EnrichedAuditResponse }) {
                       setSeverityFilter={setSeverityFilter}
                       issuesRef={issuesRef}
                     />
-                  ) : activeTab === "links" ? (
+                  ) : activeView === "links" ? (
                     <LinksPanel report={report} issues={activeIssues} />
+                  ) : activeView === "recommendations" ? (
+                    <RecommendationsPanel
+                      report={report}
+                      allIssues={allIssues}
+                      fixesBySeverity={fixesBySeverity}
+                      focusIssue={focusIssue}
+                    />
+                  ) : activeView === "issues" ? (
+                    <AllIssuesPanel
+                      issues={activeIssues}
+                      allIssues={allIssues}
+                      aiRecommendationMap={aiRecommendationMap}
+                      expandedIssueCode={expandedIssueCode}
+                      setExpandedIssueCode={setExpandedIssueCode}
+                      severityFilter={severityFilter}
+                      setSeverityFilter={setSeverityFilter}
+                      issuesRef={issuesRef}
+                    />
                   ) : (
                     <AuditCategoryPanel
-                      tabId={activeTab}
+                      tabId={activeView}
                       report={report}
                       issues={activeIssues}
                       aiRecommendationMap={aiRecommendationMap}
@@ -381,7 +367,7 @@ function DashboardSidebar({
   report: EnrichedAuditResponse;
 }) {
   return (
-    <aside className="sticky top-0 h-screen overflow-y-auto bg-white px-4 py-6">
+    <aside className="z-20 max-h-[44vh] overflow-y-auto border-b border-slate-200 bg-white px-4 py-5 lg:sticky lg:top-0 lg:h-screen lg:max-h-none lg:border-b-0 lg:py-6">
       <div className="mb-8 flex items-center gap-3 px-2">
         <div className="flex h-9 w-9 rotate-45 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#3f37ff] to-[#7657ff] shadow-lg shadow-indigo-500/20">
           <div className="h-3.5 w-3.5 rounded-[4px] border-2 border-white" />
@@ -444,7 +430,7 @@ function DashboardSidebar({
           />
         </div>
         <p className="mt-3 text-xs leading-5 text-slate-500">
-          Scroll or use the navigation to inspect every audit dimension.
+          {report.score >= 80 ? "Strong audit posture" : "Optimization plan ready"}
         </p>
       </div>
 
@@ -588,7 +574,6 @@ function ResultsHero({
 
   return (
     <Card className="relative overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
-      <div id="overview-section" className="absolute -top-24" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(83,72,255,0.10),transparent_34%),linear-gradient(135deg,rgba(255,255,255,0.96),rgba(247,249,255,0.92))]" />
       <div className="pointer-events-none absolute left-1/3 top-10 h-40 w-96 -rotate-6 rounded-full bg-gradient-to-r from-transparent via-indigo-200/30 to-transparent blur-xl" />
       <CardContent className="relative grid gap-8 p-6 sm:p-8 lg:grid-cols-[1fr_240px_300px] lg:items-center">
@@ -653,7 +638,11 @@ function ResultsHero({
           </p>
           <button
             type="button"
-            onClick={() => window.scrollBy({ top: 520, behavior: "smooth" })}
+            onClick={() =>
+              document
+                .getElementById("issues-section")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
             className="inline-flex h-11 items-center gap-2 rounded-[12px] border border-indigo-200 bg-indigo-50 px-5 text-sm font-semibold text-[#4437ff] transition duration-300 hover:-translate-y-0.5 hover:bg-indigo-100"
           >
             View Priorities
@@ -802,101 +791,6 @@ function MinimalMetricBlocks({ report }: { report: EnrichedAuditResponse }) {
   );
 }
 
-function ScoreInsightCard({
-  title,
-  icon: Icon,
-  score,
-  insight,
-  index,
-}: {
-  title: string;
-  icon: LucideIcon;
-  score: number;
-  insight: string;
-  index: number;
-}) {
-  const trend = buildTrend(score);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.06 * index, duration: 0.35 }}
-      className="group"
-    >
-      <Card className="h-full overflow-hidden rounded-[16px] border-slate-200 bg-white shadow-[0_12px_36px_rgba(15,23,42,0.05)] transition duration-300 hover:-translate-y-1 hover:border-indigo-200 hover:shadow-[0_20px_48px_rgba(63,55,255,0.10)]">
-        <CardContent className="relative space-y-4 p-5">
-          <div className="absolute inset-x-5 bottom-4 h-12 bg-gradient-to-t from-indigo-50/80 to-transparent opacity-0 transition duration-300 group-hover:opacity-100" />
-          <div className="flex items-start justify-between gap-4">
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-[12px] bg-indigo-50 text-[#4437ff]">
-              <Icon className="h-5 w-5" />
-            </div>
-            <ScoreBadge score={score} />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-[#101936]">{title}</p>
-            <p className="mt-1 font-display text-3xl font-bold tracking-tight text-[#101936]">
-              {score}
-              <span className="text-sm font-medium text-[#294066]"> /100</span>
-            </p>
-          </div>
-          <MiniChart values={trend} />
-          <div className="grid gap-2 opacity-100 transition duration-300 sm:min-h-[60px]">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Score explanation
-            </p>
-            <p className="text-sm leading-6 text-[#294066]">{insight}</p>
-          </div>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-}
-
-function TabNav({
-  activeTab,
-  onChange,
-}: {
-  activeTab: DashboardTabId;
-  onChange: (tab: DashboardTabId) => void;
-}) {
-  return (
-    <div className="rounded-[14px] border border-slate-200 bg-white p-2 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
-      <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {dashboardTabs.map(({ id, label, icon: Icon }) => {
-          const active = activeTab === id;
-
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onChange(id)}
-              className={cn(
-                "relative flex min-h-10 items-center justify-center gap-2 overflow-hidden rounded-[10px] px-3 py-2.5 text-sm font-semibold transition duration-300",
-                active
-                  ? "text-[#4437ff]"
-                  : "text-[#294066] hover:bg-slate-50 hover:text-[#4437ff]",
-              )}
-            >
-              {active ? (
-                <motion.span
-                  layoutId="effix-tab-active"
-                  className="absolute inset-0 rounded-[10px] border border-indigo-100 bg-indigo-50 shadow-sm"
-                  transition={{ type: "spring", stiffness: 280, damping: 30 }}
-                />
-              ) : null}
-              <span className="relative z-10 inline-flex items-center gap-2">
-                <Icon className="h-4 w-4" />
-                <span>{mobileTabLabel(label)}</span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function OverviewPanel({
   report,
   allIssues,
@@ -909,6 +803,7 @@ function OverviewPanel({
   fixesBySeverity,
   focusIssue,
   issuesRef,
+  issueCounts,
 }: {
   report: EnrichedAuditResponse;
   allIssues: AuditIssue[];
@@ -921,39 +816,45 @@ function OverviewPanel({
   fixesBySeverity: Array<{ severity: AuditIssueSeverity; issues: AuditIssue[] }>;
   focusIssue: (issue: AuditIssue) => void;
   issuesRef: RefObject<HTMLDivElement | null>;
+  issueCounts: Record<AuditIssueSeverity, number>;
 }) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-      <div className="space-y-6">
-        <PriorityIssuesPanel
-          sectionId="issues-section"
-          title="Priority Issues"
-          description="Filter, expand, and work through the issues that most affect search and AI visibility."
-          issues={activeIssues}
-          allIssues={allIssues}
-          aiRecommendationMap={aiRecommendationMap}
-          expandedIssueCode={expandedIssueCode}
-          setExpandedIssueCode={setExpandedIssueCode}
-          severityFilter={severityFilter}
-          setSeverityFilter={setSeverityFilter}
-          issuesRef={issuesRef}
-        />
-        <FixesByPriorityPanel
-          sectionId="fixes-section"
-          groups={fixesBySeverity}
-          onViewFix={focusIssue}
-        />
-      </div>
+    <div id="overview-section" className="space-y-5 scroll-mt-24">
+      <ResultsHero report={report} issueCounts={issueCounts} />
+      <MinimalMetricBlocks report={report} />
 
-      <div className="space-y-6">
-        <AiInsightsPanel
-          sectionId="recommendations-section"
-          report={report}
-          allIssues={allIssues}
-          onViewFix={focusIssue}
-        />
-        <PageSignalsCard report={report} />
-        <ScoreHistoryCard score={report.score} />
+      <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+        <div className="space-y-6">
+          <PriorityIssuesPanel
+            sectionId="issues-section"
+            title="Priority Issues"
+            description="Filter, expand, and work through the issues that most affect search and AI visibility."
+            issues={activeIssues}
+            allIssues={allIssues}
+            aiRecommendationMap={aiRecommendationMap}
+            expandedIssueCode={expandedIssueCode}
+            setExpandedIssueCode={setExpandedIssueCode}
+            severityFilter={severityFilter}
+            setSeverityFilter={setSeverityFilter}
+            issuesRef={issuesRef}
+          />
+          <FixesByPriorityPanel
+            sectionId="fixes-section"
+            groups={fixesBySeverity}
+            onViewFix={focusIssue}
+          />
+        </div>
+
+        <div className="space-y-6">
+          <AiInsightsPanel
+            sectionId="recommendations-section"
+            report={report}
+            allIssues={allIssues}
+            onViewFix={focusIssue}
+          />
+          <PageSignalsCard report={report} />
+          <ScoreHistoryCard score={report.score} />
+        </div>
       </div>
     </div>
   );
@@ -980,60 +881,542 @@ function AuditCategoryPanel({
   setSeverityFilter: (severity: SeverityFilter) => void;
   issuesRef: RefObject<HTMLDivElement | null>;
 }) {
-  const config = {
-    technical: {
+  const config = getMajorSectionConfig(tabId, report);
+  const categoryIssues =
+    tabId === "technical"
+      ? report.technicalIssues
+      : tabId === "content"
+        ? report.contentIssues
+        : report.aiVisibilityIssues;
+
+  return (
+    <div id={`${tabId}-section`} className="space-y-6 scroll-mt-24">
+      <SectionControlPanel config={config} />
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        {config.metrics.map((metric) => (
+          <MetricTile key={metric.label} {...metric} />
+        ))}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <Card className="rounded-[16px] border-slate-200 bg-white">
+          <CardContent className="space-y-5 p-5">
+            <SectionHeading
+              icon={BarChart3}
+              title={config.analyticsTitle}
+              description={config.analyticsDescription}
+            />
+            <div className="space-y-3">
+              {config.readiness.map((signal) => (
+                <ProgressSignal key={signal.label} {...signal} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <PriorityIssuesPanel
+          sectionId="issues-section"
+          title={`${config.title} Issue Table`}
+          description={config.issueDescription}
+          issues={issues}
+          allIssues={categoryIssues}
+          aiRecommendationMap={aiRecommendationMap}
+          expandedIssueCode={expandedIssueCode}
+          setExpandedIssueCode={setExpandedIssueCode}
+          severityFilter={severityFilter}
+          setSeverityFilter={setSeverityFilter}
+          issuesRef={issuesRef}
+        />
+      </div>
+
+      <RecommendationsList title={config.recommendationTitle} items={config.recommendations} />
+    </div>
+  );
+}
+
+type MajorSectionConfig = {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  score: number;
+  metrics: Array<{
+    label: string;
+    value: string;
+    detail: string;
+    score: number;
+  }>;
+  readiness: Array<{
+    label: string;
+    value: number;
+    detail: string;
+  }>;
+  analyticsTitle: string;
+  analyticsDescription: string;
+  issueDescription: string;
+  recommendationTitle: string;
+  recommendations: string[];
+};
+
+function getMajorSectionConfig(
+  tabId: Exclude<DashboardTabId, "overview" | "performance" | "geo" | "links">,
+  report: EnrichedAuditResponse,
+): MajorSectionConfig {
+  const titleLength = report.metadata.title.length;
+  const descriptionLength = report.metadata.metaDescription.length;
+  const hasCanonical = Boolean(report.metadata.canonicalUrl);
+  const hasViewport = Boolean(report.metadata.viewport);
+  const isHttps = report.metadata.url.startsWith("https://");
+  const h1Count = report.metadata.h1s.length;
+  const h2Count = report.metadata.h2s.length;
+  const wordCount = report.metadata.wordCount;
+  const faqCount = report.metadata.faqHeadings.length;
+  const internalLinks = report.metadata.internalLinkCount;
+  const externalLinks = report.metadata.externalLinkCount;
+
+  const titleScore = titleLength >= 30 && titleLength <= 65 ? 94 : titleLength > 0 ? 64 : 28;
+  const metaScore =
+    descriptionLength >= 120 && descriptionLength <= 170
+      ? 92
+      : descriptionLength > 0
+        ? 66
+        : 30;
+  const headingScore = h1Count === 1 && h2Count >= 2 ? 92 : h1Count > 0 ? 68 : 35;
+  const readabilityScore = Math.max(34, 92 - report.metadata.longParagraphCount * 14);
+  const depthScore = wordCount >= 900 ? 92 : wordCount >= 450 ? 74 : wordCount >= 250 ? 58 : 34;
+  const semanticScore = Math.min(96, 42 + h2Count * 8 + internalLinks * 5 + faqCount * 9);
+  const faqScore = faqCount > 2 ? 95 : faqCount > 0 ? 78 : 40;
+  const answerScore = Math.min(96, 38 + faqCount * 14 + Math.floor(wordCount / 55));
+  const entityScore = Math.min(94, 44 + h1Count * 12 + h2Count * 6 + externalLinks * 5);
+  const discoverabilityScore = Math.min(96, 45 + internalLinks * 8 + externalLinks * 6 + (hasCanonical ? 8 : 0));
+
+  if (tabId === "technical") {
+    return {
       icon: Wrench,
       title: "Technical SEO",
       description:
-        "Crawl readiness, metadata integrity, canonical signals, accessibility, and mobile fundamentals.",
+        "Crawlability, indexing signals, Core Web Vitals readiness, HTTPS, canonical hygiene, and technical fix tracking.",
       score: report.scoreBreakdown.technical,
       metrics: [
-        ["Title length", `${report.metadata.title.length || 0} chars`],
-        ["Meta description", `${report.metadata.metaDescription.length || 0} chars`],
-        ["Canonical", report.metadata.canonicalUrl ? "Present" : "Missing"],
-        ["Viewport", report.metadata.viewport ? "Present" : "Missing"],
+        {
+          label: "Crawlability",
+          value: `HTTP ${report.metadata.statusCode}`,
+          detail: report.metadata.statusCode < 400 ? "Fetchable response" : "Response needs review",
+          score: report.metadata.statusCode < 400 ? 94 : 42,
+        },
+        {
+          label: "Robots.txt",
+          value: "Verify",
+          detail: "Requires sitewide crawl scope",
+          score: 62,
+        },
+        {
+          label: "Sitemap",
+          value: "Verify",
+          detail: "Requires XML sitemap discovery",
+          score: 60,
+        },
+        {
+          label: "Canonical Tags",
+          value: hasCanonical ? "Present" : "Missing",
+          detail: hasCanonical ? "Canonical signal detected" : "No canonical URL found",
+          score: hasCanonical ? 94 : 38,
+        },
       ],
-    },
-    content: {
+      readiness: [
+        {
+          label: "Indexing Readiness",
+          value: Math.min(98, (hasCanonical ? 32 : 0) + (hasViewport ? 22 : 0) + (isHttps ? 24 : 0) + (report.metadata.statusCode < 400 ? 20 : 0)),
+          detail: "Canonical, HTTPS, mobile viewport, and response status blend",
+        },
+        {
+          label: "Core Web Vitals Readiness",
+          value: hasViewport ? 72 : 44,
+          detail: hasViewport ? "Mobile viewport is in place; field data not included in page crawl" : "Viewport missing before field-data validation",
+        },
+        {
+          label: "HTTPS Coverage",
+          value: isHttps ? 98 : 35,
+          detail: isHttps ? "Secure URL audited" : "Audit target did not use HTTPS",
+        },
+        {
+          label: "Technical Issue Load",
+          value: Math.max(20, 100 - report.technicalIssues.length * 18),
+          detail: `${report.technicalIssues.length} tracked technical issue${report.technicalIssues.length === 1 ? "" : "s"}`,
+        },
+      ],
+      analyticsTitle: "Technical Readiness Analytics",
+      analyticsDescription:
+        "Production crawl signals combined into a compact technical operations view.",
+      issueDescription:
+        "Track crawl, indexing, canonical, mobile, HTTPS, and technical readiness fixes.",
+      recommendationTitle: "Technical Recommendations",
+      recommendations: [
+        hasCanonical
+          ? "Keep canonical URLs consistent across variants, pagination, and campaign URLs."
+          : "Add a self-referencing canonical tag to clarify the preferred indexable URL.",
+        hasViewport
+          ? "Validate Core Web Vitals with field data after the technical crawl is clean."
+          : "Add a responsive viewport tag before evaluating mobile experience quality.",
+        "Extend the crawl to robots.txt and XML sitemap discovery for full indexation governance.",
+      ],
+    };
+  }
+
+  if (tabId === "content") {
+    return {
       icon: FileText,
       title: "Content Quality",
       description:
-        "Topical depth, heading clarity, readable structure, and page substance.",
+        "Title analysis, heading structure, readability, keyword depth, metadata, semantic coverage, and content opportunities.",
       score: report.scoreBreakdown.content,
       metrics: [
-        ["H1 / H2 structure", `${report.metadata.h1s.length} / ${report.metadata.h2s.length}`],
-        ["Word count", report.metadata.wordCount.toLocaleString()],
-        ["Long paragraphs", String(report.metadata.longParagraphCount)],
-        ["FAQ headings", String(report.metadata.faqHeadings.length)],
+        {
+          label: "Title Analysis",
+          value: titleLength ? `${titleLength} chars` : "Missing",
+          detail: "Recommended range is roughly 30-65 characters",
+          score: titleScore,
+        },
+        {
+          label: "Heading Structure",
+          value: `${h1Count} H1 / ${h2Count} H2`,
+          detail: h1Count === 1 ? "Primary heading present" : "Heading hierarchy needs review",
+          score: headingScore,
+        },
+        {
+          label: "Readability",
+          value: `${report.metadata.longParagraphCount} long blocks`,
+          detail: "Long paragraphs reduce scan quality",
+          score: readabilityScore,
+        },
+        {
+          label: "Meta Description",
+          value: descriptionLength ? `${descriptionLength} chars` : "Missing",
+          detail: "SERP summary and click-through signal",
+          score: metaScore,
+        },
       ],
-    },
-    "ai-visibility": {
-      icon: Bot,
-      title: "AI Visibility",
-      description:
-        "Answer-engine readiness, direct response coverage, contextual links, and entity clarity.",
-      score: report.scoreBreakdown.aiVisibility,
-      metrics: [
-        ["FAQ headings", String(report.metadata.faqHeadings.length)],
-        ["Internal links", String(report.metadata.internalLinkCount)],
-        ["External links", String(report.metadata.externalLinkCount)],
-        ["AI score", `${report.scoreBreakdown.aiVisibility}/100`],
+      readiness: [
+        {
+          label: "Keyword Depth",
+          value: depthScore,
+          detail: `${wordCount.toLocaleString()} parsed words`,
+        },
+        {
+          label: "Semantic Quality",
+          value: semanticScore,
+          detail: `${h2Count} secondary headings, ${internalLinks} internal links, ${faqCount} FAQ headings`,
+        },
+        {
+          label: "Thin Content Risk",
+          value: wordCount >= 450 ? 88 : wordCount >= 250 ? 62 : 34,
+          detail: wordCount >= 450 ? "Substantive page depth detected" : "Expand the page with useful supporting sections",
+        },
+        {
+          label: "Optimization Opportunity",
+          value: Math.max(24, 100 - report.contentIssues.length * 17),
+          detail: `${report.contentIssues.length} tracked content issue${report.contentIssues.length === 1 ? "" : "s"}`,
+        },
       ],
-    },
-  }[tabId];
+      analyticsTitle: "Content Optimization Analytics",
+      analyticsDescription:
+        "Editorial, metadata, readability, and semantic signals organized as an optimization workspace.",
+      issueDescription:
+        "Prioritize title, headings, readability, thin content, metadata, and semantic quality fixes.",
+      recommendationTitle: "Content Recommendations",
+      recommendations: [
+        titleScore >= 80
+          ? "Preserve the current title length while tightening intent and differentiation."
+          : "Rewrite the title to balance primary intent, clarity, and SERP-safe length.",
+        headingScore >= 80
+          ? "Use the current heading hierarchy to add deeper subtopics and comparison sections."
+          : "Create one clear H1 and group supporting sections under descriptive H2 headings.",
+        "Add specific examples, FAQs, proof points, and internal links where the page needs more topical depth.",
+      ],
+    };
+  }
+
+  return {
+    icon: Bot,
+    title: "AI Visibility",
+    description:
+      "Entity coverage, FAQ optimization, answer-engine readiness, GEO readiness, semantic relevance, and AI discoverability.",
+    score: report.scoreBreakdown.aiVisibility,
+    metrics: [
+      {
+        label: "Entity Coverage",
+        value: `${h1Count + h2Count} headings`,
+        detail: "Heading entities create extraction anchors",
+        score: entityScore,
+      },
+      {
+        label: "FAQ Optimization",
+        value: `${faqCount} FAQ cues`,
+        detail: "Question-led content improves answer eligibility",
+        score: faqScore,
+      },
+      {
+        label: "Answer Readiness",
+        value: `${wordCount.toLocaleString()} words`,
+        detail: "Concise, complete answers support answer engines",
+        score: answerScore,
+      },
+      {
+        label: "AI Discoverability",
+        value: `${internalLinks + externalLinks} links`,
+        detail: "Context links reinforce entity relationships",
+        score: discoverabilityScore,
+      },
+    ],
+    readiness: [
+      {
+        label: "AI Visibility Score",
+        value: report.scoreBreakdown.aiVisibility,
+        detail: "Weighted from FAQ, context links, headings, and content depth",
+      },
+      {
+        label: "GEO Readiness",
+        value: Math.min(96, Math.round((answerScore + faqScore + semanticScore) / 3)),
+        detail: "Generative engine readiness based on answer structure and semantic support",
+      },
+      {
+        label: "Semantic Relevance",
+        value: semanticScore,
+        detail: `${h2Count} H2 headings and ${internalLinks} internal context links`,
+      },
+      {
+        label: "AI Issue Load",
+        value: Math.max(20, 100 - report.aiVisibilityIssues.length * 18),
+        detail: `${report.aiVisibilityIssues.length} tracked AI visibility issue${report.aiVisibilityIssues.length === 1 ? "" : "s"}`,
+      },
+    ],
+    analyticsTitle: "AI Readiness Analytics",
+    analyticsDescription:
+      "Answer-engine signals organized for AI summaries, entity extraction, and generative search visibility.",
+    issueDescription:
+      "Track entity, FAQ, answer readiness, GEO, semantic relevance, and AI discoverability fixes.",
+    recommendationTitle: "AI Visibility Recommendations",
+    recommendations: [
+      faqCount > 0
+        ? "Expand FAQ answers with concise, source-like responses that can stand alone in AI summaries."
+        : "Add question-led FAQ sections that answer the page's highest-intent search tasks directly.",
+      "Use consistent entity names across headings, metadata, opening copy, and internal links.",
+      "Add concise definition blocks, comparison language, and proof points for answer-engine extraction.",
+    ],
+  };
+}
+
+function SectionControlPanel({ config }: { config: MajorSectionConfig }) {
+  const Icon = config.icon;
 
   return (
-    <div id={`${tabId}-section`} className="grid scroll-mt-24 gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-      <div className="space-y-6">
-        <CategoryHealthCard {...config} />
-        <MetricGrid metrics={config.metrics as Array<[string, string]>} />
+    <Card className="relative overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(247,249,255,0.92))]" />
+      <CardContent className="relative grid gap-7 p-6 sm:p-8 lg:grid-cols-[1fr_220px] lg:items-center">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-indigo-50 text-[#4437ff]">
+              <Icon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                Analytics Workspace
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-bold tracking-tight text-[#101936] sm:text-3xl">
+                {config.title}
+              </h2>
+            </div>
+          </div>
+          <p className="mt-5 max-w-3xl text-base leading-7 text-[#294066]">
+            {config.description}
+          </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            {config.metrics.slice(0, 3).map((metric) => (
+              <div
+                key={metric.label}
+                className="rounded-[14px] border border-slate-200 bg-white/80 p-4 shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
+              >
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  {metric.label}
+                </p>
+                <p className="mt-2 font-display text-xl font-bold text-[#101936]">
+                  {metric.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-center lg:justify-end">
+          <ScoreRing
+            score={config.score}
+            size={154}
+            strokeWidth={12}
+            label="Score"
+            className="border border-slate-100 shadow-none"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+  detail,
+  score,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  score: number;
+}) {
+  return (
+    <Card className="rounded-[16px] border-slate-200 bg-white shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-0.5 hover:border-indigo-200">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-bold uppercase tracking-[0.13em] text-slate-500">
+              {label}
+            </p>
+            <p className="mt-2 break-words font-display text-2xl font-bold text-[#101936]">
+              {value}
+            </p>
+          </div>
+          <ScoreBadge score={score} />
+        </div>
+        <p className="mt-3 text-sm leading-6 text-[#294066]">{detail}</p>
+        <div className="mt-4 h-1.5 rounded-full bg-slate-100">
+          <motion.div
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.max(0, Math.min(100, score))}%` }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+            className="h-full rounded-full bg-gradient-to-r from-[#4437ff] to-[#21c48d]"
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecommendationsPanel({
+  report,
+  allIssues,
+  fixesBySeverity,
+  focusIssue,
+}: {
+  report: EnrichedAuditResponse;
+  allIssues: AuditIssue[];
+  fixesBySeverity: Array<{ severity: AuditIssueSeverity; issues: AuditIssue[] }>;
+  focusIssue: (issue: AuditIssue) => void;
+}) {
+  return (
+    <div id="recommendations-section" className="space-y-6 scroll-mt-24">
+      <Card className="relative overflow-hidden rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(247,249,255,0.94))]" />
+        <CardContent className="relative grid gap-7 p-6 sm:p-8 lg:grid-cols-[1fr_260px] lg:items-center">
+          <div>
+            <SectionHeading
+              icon={ClipboardList}
+              title="Recommendations"
+              description="A prioritized SEO work queue built from the current audit, AI guidance, and expected issue impact."
+            />
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <HeroStat
+                label="Quick Wins"
+                value={allIssues.filter((issue) => issue.severity !== "high").length}
+                suffix=""
+                tone="blue"
+              />
+              <HeroStat
+                label="High Impact"
+                value={allIssues.filter((issue) => issue.severity === "high" || issue.impact >= 12).length}
+                suffix=""
+                tone="amber"
+              />
+              <HeroStat
+                label="AI Guided"
+                value={report.aiInsights.issueRecommendations.length}
+                suffix=""
+                tone="emerald"
+              />
+            </div>
+          </div>
+          <ScoreRing
+            score={report.score}
+            size={154}
+            strokeWidth={12}
+            label="Plan"
+            className="justify-self-center border border-slate-100 shadow-none lg:justify-self-end"
+          />
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+        <AiInsightsPanel
+          report={report}
+          allIssues={allIssues}
+          onViewFix={focusIssue}
+        />
+        <FixesByPriorityPanel groups={fixesBySeverity} onViewFix={focusIssue} />
       </div>
+    </div>
+  );
+}
+
+function AllIssuesPanel({
+  issues,
+  allIssues,
+  aiRecommendationMap,
+  expandedIssueCode,
+  setExpandedIssueCode,
+  severityFilter,
+  setSeverityFilter,
+  issuesRef,
+}: {
+  issues: AuditIssue[];
+  allIssues: AuditIssue[];
+  aiRecommendationMap: Map<string, EnrichedAuditResponse["aiInsights"]["issueRecommendations"][number]>;
+  expandedIssueCode: string | null;
+  setExpandedIssueCode: (code: string | null) => void;
+  severityFilter: SeverityFilter;
+  setSeverityFilter: (severity: SeverityFilter) => void;
+  issuesRef: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div id="issues-section" className="space-y-6 scroll-mt-24">
+      <Card className="rounded-[18px] border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.06)]">
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <SectionHeading
+              icon={AlertTriangle}
+              title="Issues"
+              description="A complete issue register across technical SEO, content quality, and AI visibility."
+            />
+            <div className="grid min-w-0 gap-3 sm:grid-cols-3">
+              {severities.map((severity) => (
+                <div
+                  key={severity}
+                  className="rounded-[14px] border border-slate-200 bg-slate-50/70 px-5 py-4 text-center"
+                >
+                  <p className={cn("font-display text-2xl font-bold", severityStyles[severity].accent)}>
+                    {allIssues.filter((issue) => issue.severity === severity).length}
+                  </p>
+                  <p className="mt-1 text-[11px] font-bold uppercase tracking-[0.13em] text-slate-500">
+                    {severity}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <PriorityIssuesPanel
-        sectionId="issues-section"
-        title={`${config.title} Findings`}
-        description={config.description}
+        title="Issue Table"
+        description="Filter by severity, expand each row, and inspect the recommended fix without leaving the workspace."
         issues={issues}
-        allIssues={issues}
+        allIssues={allIssues}
         aiRecommendationMap={aiRecommendationMap}
         expandedIssueCode={expandedIssueCode}
         setExpandedIssueCode={setExpandedIssueCode}
@@ -1663,37 +2046,6 @@ function ScoreHistoryCard({ score }: { score: number }) {
   );
 }
 
-function CategoryHealthCard({
-  icon: Icon,
-  title,
-  description,
-  score,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  score: number;
-}) {
-  return (
-    <Card className="rounded-[16px] border-slate-200 bg-white">
-      <CardContent className="space-y-6 p-6">
-        <SectionHeading icon={Icon} title={title} description={description} />
-        <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-center">
-          <ScoreRing score={score} size={132} strokeWidth={10} label="Score" />
-          <div className="space-y-4">
-            <ProgressSignal
-              label="Current readiness"
-              value={score}
-              detail={`${getScoreLabel(score)} based on active audit rules`}
-            />
-            <MiniChart values={buildTrend(score)} />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function SectionHeading({
   icon: Icon,
   title,
@@ -1765,24 +2117,6 @@ function InsightBlock({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-2 text-sm leading-6 text-[#294066]">{value}</p>
-    </div>
-  );
-}
-
-function MetricGrid({ metrics }: { metrics: Array<[string, string]> }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {metrics.map(([label, value]) => (
-        <div
-          key={label}
-          className="rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.035)]"
-        >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-            {label}
-          </p>
-          <p className="mt-2 break-words font-display text-2xl font-bold text-[#101936]">{value}</p>
-        </div>
-      ))}
     </div>
   );
 }
@@ -1896,23 +2230,6 @@ function CompactIssue({ issue }: { issue: AuditIssue }) {
   );
 }
 
-function MiniChart({ values }: { values: number[] }) {
-  return (
-    <div className="group/chart flex h-16 items-end gap-1.5 rounded-[14px] bg-gradient-to-b from-white to-indigo-50/60 p-3">
-      {values.map((value, index) => (
-        <motion.div
-          key={`${value}-${index}`}
-          initial={{ height: 0 }}
-          animate={{ height: `${value}%` }}
-          transition={{ delay: index * 0.035, duration: 0.45, ease: "easeOut" }}
-          title={`Trend point ${index + 1}: ${Math.round(value)}`}
-          className="flex-1 rounded-t-full bg-gradient-to-t from-[#4437ff]/55 to-[#7c5cff]/80 transition duration-300 hover:from-[#4437ff] hover:to-[#7c5cff]"
-        />
-      ))}
-    </div>
-  );
-}
-
 function MiniLineChart({ values }: { values: number[] }) {
   const points = values
     .map((value, index) => {
@@ -1992,28 +2309,4 @@ function buildTrend(score: number) {
   return [base - 18, base - 9, base - 14, base - 4, base - 8, base, base + 4].map(
     (value) => Math.max(12, Math.min(100, value)),
   );
-}
-
-function mobileTabLabel(label: string) {
-  if (label === "Technical SEO") {
-    return "Technical";
-  }
-
-  if (label === "Content Quality") {
-    return "Content";
-  }
-
-  if (label === "AI Visibility") {
-    return "AI Visibility";
-  }
-
-  if (label === "GEO Optimization") {
-    return "GEO";
-  }
-
-  if (label === "Links & Authority") {
-    return "Links";
-  }
-
-  return label;
 }
